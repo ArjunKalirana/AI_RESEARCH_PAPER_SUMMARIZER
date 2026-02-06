@@ -1,0 +1,48 @@
+# Node / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.*
+
+# Build output
+dist/
+build/
+
+# Neo4j
+data/
+logs/
+import/
+plugins/
+*.db
+
+# AI / ML artifacts
+*.pt
+*.pth
+*.h5
+*.onnx
+*.ckpt
+*.pickle
+*.pkl
+
+# Research / experiments
+outputs/
+results/
+runs/
+checkpoints/
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.log

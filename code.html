@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SummarizeAI - User Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1e68f1",
+                        "background-light": "#f5f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#0d121c] dark:text-gray-100 min-h-screen">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 bg-white dark:bg-[#1a2133] border-b border-solid border-[#e7ebf3] dark:border-gray-800 px-6 lg:px-40 py-3">
+<div class="max-w-[1200px] mx-auto flex items-center justify-between whitespace-nowrap">
+<div class="flex items-center gap-4 text-primary">
+<div class="size-8">
+<svg fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z" fill="currentColor" fill-rule="evenodd"></path>
+<path clip-rule="evenodd" d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-[#0d121c] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">SummarizeAI</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<nav class="hidden md:flex items-center gap-9">
+<a class="text-primary text-sm font-semibold leading-normal" href="#">Dashboard</a>
+<a class="text-[#4b679b] dark:text-gray-400 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Library</a>
+<a class="text-[#4b679b] dark:text-gray-400 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Pricing</a>
+</nav>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#4b679b] dark:text-gray-400 cursor-pointer">notifications</span>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary/20" data-alt="User profile avatar portrait" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAJvYSh76YoUXFvhMzzwPrl6FMEZpHldYDp7ZMCIqFW3eeNiVx2UDD-Blq5eG6bzpX6KKGxs3_P28LXXRt96QH1Ww5khBvogrPdDPX_Ntac3BUqOgtg2HL2jFzUx4A5IE0lcgeYVgPi3sW-jDH8mS9eYfL1sdHsf-FlLx1FlLVeLPNHrnZ3GqtuNxjuwvbOMdyl3W3ZJaYtpHkGSvNbtmeMVG60etZZ7cB6jcKyJaEdZmuI9BZAb_g7k51uSR5ZhXB1OBBxbmydyCo");'></div>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-[1000px] mx-auto px-6 py-10 flex flex-col gap-8">
+<!-- Page Heading -->
+<div class="flex flex-wrap justify-between items-end gap-4">
+<div class="flex flex-col gap-1">
+<p class="text-[#0d121c] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Dashboard Overview</p>
+<p class="text-[#4b679b] dark:text-gray-400 text-lg font-normal">Welcome back, Dr. Julian. Your workspace is ready.</p>
+</div>
+<div class="bg-primary/10 text-primary px-4 py-2 rounded-lg flex items-center gap-2 font-medium text-sm">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+                October 24, 2023
+            </div>
+</div>
+<!-- Stats Section -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-2 rounded-xl bg-white dark:bg-[#1a2133] p-8 border border-[#cfd8e8] dark:border-gray-800 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-[#4b679b] dark:text-gray-400 text-base font-medium leading-normal uppercase tracking-wider">Papers Processed</p>
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">description</span>
+</div>
+</div>
+<p class="text-[#0d121c] dark:text-white tracking-light text-4xl font-bold leading-tight">42</p>
+<div class="flex items-center gap-1 mt-2">
+<span class="material-symbols-outlined text-[#07883b] text-sm">trending_up</span>
+<p class="text-[#07883b] text-sm font-bold">+12% from last month</p>
+</div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl bg-white dark:bg-[#1a2133] p-8 border border-[#cfd8e8] dark:border-gray-800 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-[#4b679b] dark:text-gray-400 text-base font-medium leading-normal uppercase tracking-wider">Time Saved</p>
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">timer</span>
+</div>
+</div>
+<p class="text-[#0d121c] dark:text-white tracking-light text-4xl font-bold leading-tight">15.5 Hours</p>
+<div class="flex items-center gap-1 mt-2">
+<span class="material-symbols-outlined text-[#07883b] text-sm">trending_up</span>
+<p class="text-[#07883b] text-sm font-bold">+5% efficiency gain</p>
+</div>
+</div>
+</div>
+<!-- CTA Section -->
+<div class="bg-white dark:bg-[#1a2133] rounded-xl p-10 border-2 border-dashed border-[#cfd8e8] dark:border-gray-700 flex flex-col items-center justify-center text-center gap-4">
+<div class="size-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-4xl">cloud_upload</span>
+</div>
+<h3 class="text-[#0d121c] dark:text-white text-xl font-bold">Upload a new research paper</h3>
+<p class="text-[#4b679b] dark:text-gray-400 max-w-md">Drag and drop your PDF or DOCX file here to generate an AI-powered summary in seconds.</p>
+<div class="flex flex-col items-center gap-3 w-full max-w-[480px]">
+<button class="w-full flex cursor-pointer items-center justify-center overflow-hidden rounded-lg h-14 px-8 bg-primary text-white gap-3 shadow-lg hover:bg-primary/90 transition-all text-lg font-bold">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="truncate">Upload New Paper</span>
+</button>
+<p class="text-[#4b679b] dark:text-gray-500 text-xs font-normal">PDF, DOCX up to 20MB</p>
+</div>
+</div>
+<!-- Recent Activity Table -->
+<div class="bg-white dark:bg-[#1a2133] rounded-xl border border-[#cfd8e8] dark:border-gray-800 shadow-sm overflow-hidden">
+<div class="px-6 py-5 border-b border-[#cfd8e8] dark:border-gray-800 flex justify-between items-center">
+<h3 class="text-[#0d121c] dark:text-white text-lg font-bold">Recent Papers</h3>
+<button class="text-primary text-sm font-semibold hover:underline">View All Library</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-background-light dark:bg-gray-800/50">
+<tr>
+<th class="px-6 py-3 text-[#4b679b] dark:text-gray-400 text-xs font-bold uppercase tracking-wider">Title</th>
+<th class="px-6 py-3 text-[#4b679b] dark:text-gray-400 text-xs font-bold uppercase tracking-wider">Date</th>
+<th class="px-6 py-3 text-[#4b679b] dark:text-gray-400 text-xs font-bold uppercase tracking-wider">Status</th>
+<th class="px-6 py-3 text-[#4b679b] dark:text-gray-400 text-xs font-bold uppercase tracking-wider text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#cfd8e8] dark:divide-gray-800">
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-red-500">picture_as_pdf</span>
+<span class="text-[#0d121c] dark:text-white font-medium">Deep Learning in Neural Networks: A Systematic Review</span>
+</div>
+</td>
+<td class="px-6 py-4 text-[#4b679b] dark:text-gray-400 text-sm">Oct 24, 2023</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded bg-[#07883b]/10 text-[#07883b] text-[10px] font-black uppercase">Completed</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="bg-primary/10 text-primary px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-primary hover:text-white transition-all">View Summary</button>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-500">description</span>
+<span class="text-[#0d121c] dark:text-white font-medium">Climate Change Impacts on Global Food Security 2024</span>
+</div>
+</td>
+<td class="px-6 py-4 text-[#4b679b] dark:text-gray-400 text-sm">Oct 22, 2023</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded bg-[#07883b]/10 text-[#07883b] text-[10px] font-black uppercase">Completed</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="bg-primary/10 text-primary px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-primary hover:text-white transition-all">View Summary</button>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-red-500">picture_as_pdf</span>
+<span class="text-[#0d121c] dark:text-white font-medium">Quantum Computing: Future of Cryptography</span>
+</div>
+</td>
+<td class="px-6 py-4 text-[#4b679b] dark:text-gray-400 text-sm">Oct 20, 2023</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-500 text-[10px] font-black uppercase flex items-center gap-1 w-fit">
+<span class="material-symbols-outlined text-xs animate-spin">sync</span> Processing
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-[#4b679b] dark:text-gray-500 px-4 py-1.5 rounded-lg text-sm font-bold cursor-not-allowed" disabled="">Waiting...</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+<footer class="max-w-[1000px] mx-auto px-6 py-8 border-t border-[#cfd8e8] dark:border-gray-800 text-center">
+<p class="text-[#4b679b] dark:text-gray-500 text-sm">© 2023 SummarizeAI. Empowering researchers with intelligent insights.</p>
+</footer>
+</body></html>
