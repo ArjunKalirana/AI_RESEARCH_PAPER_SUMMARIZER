@@ -1,0 +1,4 @@
+faiss-cpu
+fastapi
+uvicorn
+numpy

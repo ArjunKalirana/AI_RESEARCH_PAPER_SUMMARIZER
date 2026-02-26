@@ -1,25 +1,116 @@
-# Node / npm
+#################################################
+# ========== NODE / JAVASCRIPT ==========
+#################################################
+
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
-# Environment variables
-.env
-.env.*
-
-# Build output
+# Build outputs
 dist/
 build/
+.next/
+out/
+.vite/
+.vercel/
 
-# Neo4j
+#################################################
+# ========== PYTHON ==========
+#################################################
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Python build
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+
+#################################################
+# ========== ENVIRONMENT VARIABLES ==========
+#################################################
+
+.env
+.env.*
+!.env.example
+
+#################################################
+# ========== NEO4J ==========
+#################################################
+
 data/
 logs/
 import/
 plugins/
 *.db
+*.transactions
+*.backup
 
-# AI / ML artifacts
+#################################################
+# ========== FAISS ==========
+#################################################
+
+*.faiss
+*.index
+*.index.pkl
+faiss_index/
+vector_store/
+
+#################################################
+# ========== OLLAMA MODELS ==========
+#################################################
+
+# Ollama local models (Mac/Linux default path reference)
+ollama/
+models/
+*.gguf
+*.bin
+
+#################################################
+# ========== SENTENCE TRANSFORMERS ==========
+#################################################
+
+sentence_transformers/
+hf_cache/
+.cache/
+transformers_cache/
+
+#################################################
+# ========== AI / ML ARTIFACTS ==========
+#################################################
+
 *.pt
 *.pth
 *.h5
@@ -27,22 +118,72 @@ plugins/
 *.ckpt
 *.pickle
 *.pkl
+*.joblib
 
-# Research / experiments
 outputs/
 results/
 runs/
 checkpoints/
+experiments/
 
-# OS / Editor junk
+#################################################
+# ========== COVERAGE ==========
+#################################################
+
+coverage/
+*.lcov
+
+#################################################
+# ========== LOGS ==========
+#################################################
+
+*.log
+*.tmp
+logs/
+
+#################################################
+# ========== OS / EDITOR JUNK ==========
+#################################################
+
 .DS_Store
 Thumbs.db
+
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Coverage
+#################################################
+# ========== DATABASES ==========
+#################################################
+
+*.sqlite
+*.sqlite3
+
+#################################################
+# ========== DOCKER ==========
+#################################################
+
+docker-data/
+*.tar
+
+#################################################
+# ========== FRONTEND UI ==========
+#################################################
+
+.cache/
+storybook-static/
 coverage/
 
-# Temporary files
-*.tmp
-*.log
+#################################################
+# ========== JUPYTER ==========
+#################################################
+
+.ipynb_checkpoints
+
+#################################################
+# ========== MISC ==========
+#################################################
+
+*.bak
+*.orig
