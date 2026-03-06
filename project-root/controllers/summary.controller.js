@@ -39,6 +39,37 @@ async function getSummary(req, res) {
   }
 }
 
+async function downloadPaper(req, res) {
+  try {
+    const { paperId } = req.params;
+    
+    if (!paperId || typeof paperId !== 'string') {
+      return res.status(400).json({ error: 'Invalid paper ID' });
+    }
+
+    // Reconstruction: paperId format is {sourceName}_{multerFileName}
+    const parts = paperId.split('_');
+    if (parts.length < 2) {
+      return res.status(400).json({ error: 'Malformed paper ID structure' });
+    }
+
+    const pdfFilename = path.basename(parts.slice(1).join('_') + '.pdf');
+    const RAW_DIR = path.join(__dirname, '../data/raw_papers');
+    const pdfPath = path.join(RAW_DIR, pdfFilename);
+
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json({ error: 'Original PDF file not found on server' });
+    }
+
+    // Prompt browser to download the file directly
+    res.download(pdfPath, `ResearchPaper_${pdfFilename}`);
+  } catch (error) {
+    console.error('❌ Download Route Error:', error);
+    res.status(500).json({ error: 'Failed to download paper PDF' });
+  }
+}
+
 module.exports = {
-  getSummary
+  getSummary,
+  downloadPaper
 };

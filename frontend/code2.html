@@ -4,7 +4,8 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Simplified Workflow - Summary</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
@@ -108,11 +109,11 @@
 </div>
 </div>
 <div class="flex gap-2">
-<button class="flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-lg hover:bg-primary/90 transition-all shadow-sm">
+<button id="downloadPdfBtn" class="flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-lg hover:bg-primary/90 transition-all shadow-sm">
 <span class="material-symbols-outlined text-lg">download</span>
 <span>Download PDF</span>
 </button>
-<button class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 transition-all">
+<button id="shareSummaryBtn" class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 transition-all" title="Share">
 <span class="material-symbols-outlined">share</span>
 </button>
 </div>
@@ -126,10 +127,10 @@
 <span class="material-symbols-outlined font-bold">bolt</span>
 <h2 class="text-xl font-bold tracking-tight">Summary</h2>
 </div>
-<div class="bg-primary/5 border-l-4 border-primary p-6 rounded-r-lg">
-<p id="paperSummary" class="text-lg text-slate-700 dark:text-slate-200 leading-relaxed italic">
-                        Loading...
-                    </p>
+<div class="bg-primary/5 border-l-4 border-primary p-6 rounded-r-lg shadow-inner">
+<div id="paperSummary" class="prose prose-slate dark:prose-invert prose-p:leading-relaxed prose-headings:text-primary max-w-none">
+    <p class="italic text-slate-500">Loading...</p>
+</div>
 </div>
 </section>
 
@@ -144,13 +145,9 @@
 <!-- Bottom Action Bar -->
 <div class="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
 <div class="flex items-center gap-4">
-<button class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-primary transition-colors">
+<button id="copySummaryBtn" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-primary transition-colors">
 <span class="material-symbols-outlined text-lg">content_copy</span>
-                        Copy Summary
-                    </button>
-<button class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-primary transition-colors">
-<span class="material-symbols-outlined text-lg">bookmark</span>
-                        Save to Library
+                        <span id="copySummaryText">Copy Summary</span>
                     </button>
 </div>
 <button id="askAiBtn" class="flex items-center gap-2 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all">
@@ -182,6 +179,41 @@
              window.location.href = `code.html?paperId=${paperId}`;
         });
 
+        // Setup Download PDF functionality
+        document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+            window.location.href = `/api/download/${paperId}`;
+        });
+
+        // Setup share functionality
+        document.getElementById('shareSummaryBtn').addEventListener('click', async () => {
+            const currentUrl = window.location.href;
+            const title = document.getElementById('paperTitle').textContent.trim() || 'Research Paper Summary';
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: title,
+                        text: `Check out this AI-generated summary for: ${title}`,
+                        url: currentUrl
+                    });
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.error('Error sharing:', err);
+                    }
+                }
+            } else {
+                // Fallback for browsers that don't support Web Share API
+                try {
+                    await navigator.clipboard.writeText(currentUrl);
+                    alert("Link copied to clipboard!");
+                } catch (err) {
+                    console.error("Failed to copy link: ", err);
+                }
+            }
+        });
+
+        let rawSummaryData = ""; // Store for copying
+
         try {
             const res = await fetch(`/api/summary/${paperId}`);
             if (!res.ok) throw new Error('Failed to load summary');
@@ -195,7 +227,25 @@
             }
             document.getElementById('paperAuthors').textContent = authorTxt;
             document.getElementById('paperYear').textContent = data.year || "Unknown";
-            document.getElementById('paperSummary').textContent = data.summary;
+            
+            // Render markdown through marked.js, sanitizing isn't strictly necessary since it's our own LLM but good practice
+            rawSummaryData = data.summary || "No summary available.";
+            document.getElementById('paperSummary').innerHTML = marked.parse(rawSummaryData);
+
+            // Set up copy functionality now that we have the data
+            document.getElementById('copySummaryBtn').addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(rawSummaryData);
+                    const copyTextSpan = document.getElementById('copySummaryText');
+                    const originalText = copyTextSpan.textContent;
+                    copyTextSpan.textContent = "Copied!";
+                    setTimeout(() => {
+                        copyTextSpan.textContent = originalText;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                }
+            });
 
             const sectionsList = document.getElementById('sectionsList');
             if (data.sections && Object.keys(data.sections).length > 0) {
@@ -215,7 +265,7 @@
 
         } catch (error) {
             console.error('Error fetching summary:', error);
-            document.getElementById('paperSummary').textContent = "Failed to load summary. " + error.message;
+            document.getElementById('paperSummary').innerHTML = `<p class="text-red-500">Failed to load summary. ${error.message}</p>`;
         }
     });
 </script>

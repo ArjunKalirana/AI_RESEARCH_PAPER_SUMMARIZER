@@ -8,7 +8,7 @@ const { normalizePaperJSON, validatePaperJSON } = require('../services/paperNorm
 const { extractMetadata } = require('../services/metadataExtractor');
 const { addTexts } = require('../services/faissService');
 const { runQuery } = require('../services/neo4j.service');
-const { generateSummary } = require('../services/llmService');
+const { generateSummary, generateStructuredSummary } = require('../services/llmService');
 
 const OUTPUT_DIR = path.join(__dirname, '../data/processed_papers');
 const vectorMapPath = path.join(__dirname, '../data/vector_map.json');
@@ -67,23 +67,11 @@ async function uploadPaper(req, res) {
     validatePaperJSON(normalizedPaper);
     const { paperId, title, year, source, authors } = normalizedPaper;
 
-    // 4️⃣ Embed all chunks (FAISS)
-    let vectorMap = [];
-    if (fs.existsSync(vectorMapPath)) {
-      vectorMap = JSON.parse(fs.readFileSync(vectorMapPath));
-    }
-
+    // 4️⃣ Embed all chunks (FAISS - Isolated per paper)
     for (const chunk of chunks) {
       console.log(`Embedding chunk ${chunk.chunkIndex} for ${paperId}...`);
-      const response = await addTexts([chunk.chunkText]);
-      vectorMap.push({
-        faissIndex: response.start_index,
-        paperId: paperId,
-        chunkIndex: chunk.chunkIndex,
-        sectionName: chunk.sectionName
-      });
+      await addTexts([chunk.chunkText], paperId);
     }
-    fs.writeFileSync(vectorMapPath, JSON.stringify(vectorMap, null, 2));
 
     // 5️⃣ Build Knowledge Graph (Neo4j)
     console.log(`📘 Ingesting into Neo4j: ${paperId}`);
@@ -123,7 +111,7 @@ async function uploadPaper(req, res) {
         title, year, section: c.sectionName || "Intro/Outro", chunkText: c.chunkText
     }));
     
-    const summaryPreview = await generateSummary("Provide a concise summary of the core methodology, results, and the most important key takeaways from this paper.", summaryContext);
+    const summaryPreview = await generateStructuredSummary(summaryContext);
     
     // Add summary to the final JSON
     normalizedPaper.summaryPreview = summaryPreview;

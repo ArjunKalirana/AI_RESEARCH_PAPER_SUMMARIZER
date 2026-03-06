@@ -1,10 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-const { searchQuery } = require('../services/faissService');
+const { searchQuery, computeSimilarity } = require('../services/faissService');
 const { runQuery } = require('../services/neo4j.service');
 const { generateSummary } = require('../services/llmService');
 
-const vectorMapPath = path.join(__dirname, '../data/vector_map.json');
+const vectorMapPath = path.join(__dirname, '../data/vector_map.json'); // Deprecated
 const processedPath = path.join(__dirname, '../data/processed_papers');
 
 /* ================================
@@ -40,37 +40,46 @@ function extractKeySentences(text, query) {
 /* ================================
    Retrieval Evaluation
 ================================ */
-function evaluateRetrieval(query, hybridContext) {
-  const keywords = query.toLowerCase().split(/\W+/).filter(w => w.length > 2);
-  let relevantCount = 0;
-
-  hybridContext.forEach(c => {
-    const text = c.chunkText.toLowerCase();
-    // Relax the match from checking if SOME keywords match, to checking if AT LEAST ONE meaningful keyword is in text
-    if (keywords.length === 0 || keywords.some(k => text.includes(k))) {
-      relevantCount++;
-    }
-  });
+async function evaluateRetrieval(query, hybridContext) {
+  if (hybridContext.length === 0) {
+    return { precision: "0.00", totalRetrieved: 0, relevantChunks: 0 };
+  }
+  
+  let totalSim = 0;
+  for (const c of hybridContext) {
+    const simRes = await computeSimilarity(query, c.chunkText);
+    totalSim += simRes.similarity;
+  }
+  
+  const avgSim = totalSim / hybridContext.length;
 
   return {
     totalRetrieved: hybridContext.length,
-    relevantChunks: relevantCount,
-    precision: hybridContext.length === 0 ? "0.00" : (relevantCount / hybridContext.length).toFixed(2)
+    relevantChunks: hybridContext.length, // All are considered 'retrieved' context
+    precision: avgSim.toFixed(2) // We use semantic similarity as precision
   };
 }
 
 /* ================================
    Faithfulness Evaluation
 ================================ */
-function evaluateFaithfulness(summary, hybridContext) {
-  const contextText = hybridContext.map(c => c.chunkText).join(" ").toLowerCase();
-  const summaryWords = summary.toLowerCase().split(/\W+/).filter(w => w.length > 6 && !["answer", "question", "context"].includes(w));
-  const hallucinatedWords = summaryWords.filter(word => !contextText.includes(word));
+async function evaluateFaithfulness(summary, hybridContext) {
+  if (hybridContext.length === 0 || !summary || summary.includes("Not found in the paper") || summary.includes("I cannot answer this")) {
+    return { hallucinationRatio: "0.00", hallucinationCount: 0, sample: [] };
+  }
+
+  const contextText = hybridContext.map(c => c.chunkText).join(" ");
+  const simRes = await computeSimilarity(summary, contextText);
+  const groundingScore = simRes.similarity;
+  
+  // Calculate a mock 'hallucination ratio' which is inverse of grounding
+  const hallucinationRatio = Math.max(0, 1 - groundingScore);
 
   return {
-    hallucinationCount: hallucinatedWords.length,
-    hallucinationRatio: summaryWords.length === 0 ? "0.00" : (hallucinatedWords.length / summaryWords.length).toFixed(2),
-    sample: hallucinatedWords.slice(0, 6)
+    hallucinationCount: 0,
+    hallucinationRatio: hallucinationRatio.toFixed(2),
+    sample: [],
+    groundingScore: groundingScore.toFixed(2)
   };
 }
 
@@ -88,75 +97,66 @@ function getConfidenceLabel(score) {
 ================================ */
 async function askQuestion(req, res) {
   try {
-    const { paperId, question } = req.body;
+    const { paperId, question, chatHistory = [] } = req.body;
 
     if (!paperId || !question) {
       return res.status(400).json({ error: 'paperId and question are required' });
     }
 
-    // 1️⃣ Run Hybrid Retrieval (FAISS Search)
-    const searchResult = await searchQuery(question);
-    const allIndices = searchResult.indices[0]; 
-    const allDistances = searchResult.distances[0];
-
-    let vectorMap = [];
-    if (fs.existsSync(vectorMapPath)) {
-      vectorMap = JSON.parse(fs.readFileSync(vectorMapPath));
-    }
+    // 1️⃣ Run Hybrid Retrieval (FAISS Search - isolated index for this paper)
+    const searchResult = await searchQuery(question, paperId, 6);
+    const allIndices = searchResult.indices[0] || []; 
+    const allDistances = searchResult.distances[0] || [];
 
     const hybridContext = [];
     const sourceTracker = new Set();
     const sources = [];
     const validDistances = [];
 
-    // Filter vector mapping to get context for paperId
-    for (let i = 0; i < allIndices.length; i++) {
-        const idx = allIndices[i];
-        const match = vectorMap.find(v => v.faissIndex === idx && v.paperId === paperId);
-        
-        if (!match) continue; // Not from this paper, ignore
+    const paperFile = `${paperId}.json`;
+    const paperPath = path.join(processedPath, paperFile);
     
-        const paperFile = `${match.paperId}.json`;
-        const paperPath = path.join(processedPath, paperFile);
-        
-        if (!fs.existsSync(paperPath)) continue;
-        
+    if (fs.existsSync(paperPath)) {
         const paper = JSON.parse(fs.readFileSync(paperPath, 'utf-8'));
-        const chunk = paper.chunks.find(c => c.chunkIndex === match.chunkIndex);
-    
-        if (!chunk) continue;
-    
-        // Fetch metadata from Neo4j
+        
+        // Fetch metadata from Neo4j once optimally
         const graphRes = await runQuery(`
           MATCH (p:ResearchPaper {paperId: $paperId})
           OPTIONAL MATCH (p)-[:WRITTEN_BY]->(a:Author)
           RETURN p.title AS title, p.year AS year, collect(a.authorName) AS authors
-        `, { paperId: match.paperId });
-    
+        `, { paperId });
+        
         const graphData = graphRes.records[0]?.toObject();
-    
-        hybridContext.push({
-          paperId: match.paperId,
-          title: graphData?.title || paper.title || "Unknown",
-          year: graphData?.year || paper.year || "Unknown",
-          authors: graphData?.authors || paper.authors || [],
-          section: match.sectionName || chunk.sectionName || "Unknown",
-          chunkText: extractKeySentences(chunk.chunkText, question)
-        });
 
-        // Track sources
-        const sourceName = match.sectionName ? `Section: ${match.sectionName}` : "Document";
-        if (!sourceTracker.has(sourceName)) {
-            sourceTracker.add(sourceName);
-            sources.push(sourceName);
+        for (let i = 0; i < allIndices.length; i++) {
+            const idx = allIndices[i]; // Isolated index maps exactly to chunkIndex
+            
+            const chunk = paper.chunks.find(c => c.chunkIndex === idx);
+            if (!chunk) continue;
+            
+            hybridContext.push({
+              paperId: paperId,
+              title: graphData?.title || paper.title || "Unknown",
+              year: graphData?.year || paper.year || "Unknown",
+              authors: graphData?.authors || paper.authors || [],
+              section: chunk.sectionName || "Unknown",
+              chunkText: extractKeySentences(chunk.chunkText, question)
+            });
+
+            // Track sources
+            const sourceName = chunk.sectionName ? `Section: ${chunk.sectionName}` : "Document";
+            if (!sourceTracker.has(sourceName)) {
+                sourceTracker.add(sourceName);
+                sources.push(sourceName);
+            }
+            validDistances.push(allDistances[i]);
+            if (hybridContext.length >= 6) break; 
         }
-        validDistances.push(allDistances[i]);
-        if (hybridContext.length >= 5) break; 
     }
 
     // 2️⃣ Evaluate Retrieval
-    const retrievalMetrics = evaluateRetrieval(question, hybridContext);
-    const retrievalScore = parseFloat(retrievalMetrics.precision);
+    const retrievalMetrics = await evaluateRetrieval(question, hybridContext);
+    const retrievalScore = parseFloat(retrievalMetrics.precision); // This is now average similarity
 
     // Fallback if no relevant passages are found at all in the paper
     if (hybridContext.length === 0) {
@@ -171,23 +171,21 @@ async function askQuestion(req, res) {
     }
 
     // 3️⃣ Generate LLM Answer
-    const answer = await generateSummary(question, hybridContext);
+    const answer = await generateSummary(question, hybridContext, chatHistory);
 
     // 4️⃣ Evaluate Faithfulness
-    const faithfulnessMetrics = evaluateFaithfulness(answer, hybridContext);
+    const faithfulnessMetrics = await evaluateFaithfulness(answer, hybridContext);
 
     // 5️⃣ Calculate Confidence Score
-    let avgDistance = 0;
-    if (validDistances.length > 0) {
-        avgDistance = validDistances.reduce((a, b) => a + b, 0) / validDistances.length;
-    }
-    const vectorConfidence = 1 / (1 + avgDistance);
-    const groundednessScore = 1 - parseFloat(faithfulnessMetrics.hallucinationRatio);
+    // New Formula: Total Confidence = 0.6 * Semantic Grounding + 0.4 * Context Relevance
+    const semanticGrounding = faithfulnessMetrics.groundingScore ? parseFloat(faithfulnessMetrics.groundingScore) : 0;
+    
+    // Normalize retrieval score to [0,1] domain assuming it's cosine similarity
+    const contextRelevance = Math.max(0, retrievalScore); 
 
     const finalConfidence = parseFloat((
-      0.5 * retrievalScore +
-      0.3 * groundednessScore +
-      0.2 * vectorConfidence
+      0.6 * semanticGrounding + 
+      0.4 * contextRelevance
     ).toFixed(2));
 
     const confidenceLabel = getConfidenceLabel(finalConfidence);
