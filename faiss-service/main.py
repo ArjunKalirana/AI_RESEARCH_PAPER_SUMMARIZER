@@ -3,15 +3,20 @@ import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
+from typing import List, Any
 import os
+import json
 
 app = FastAPI()
 
 DIMENSION = 384
 os.makedirs("index_store", exist_ok=True)
 
-# Load embedding model
 model = SentenceTransformer("all-MiniLM-L6-v2")
+
+class IndexInput(BaseModel):      # ✅ ADD THIS
+    index_id: str
+    chunks: List[Any]
 
 class TextInput(BaseModel):
     index_id: str
@@ -26,31 +31,44 @@ class SentencePair(BaseModel):
     text1: str
     text2: str
 
-@app.post("/add")
-def add_texts(data: TextInput):
-    index_path = f"index_store/{data.index_id}.index"
-    
-    if os.path.exists(index_path):
-        index = faiss.read_index(index_path)
-    else:
-        index = faiss.IndexFlatIP(DIMENSION)
+@app.post("/index")
+def build_index(data: IndexInput):
+    os.makedirs("index_store", exist_ok=True)
 
-    embeddings = model.encode(data.texts)
+    # ✅ FIX: Sort chunks by chunkIndex to guarantee position alignment
+    sorted_chunks = sorted(data.chunks, key=lambda c: c["chunkIndex"])
+
+    texts = [chunk["chunkText"] for chunk in sorted_chunks]
+
+    if not texts:
+        return {"error": "No chunks provided"}
+
+    # Encode all chunk texts
+    embeddings = model.encode(texts, batch_size=32, show_progress_bar=False)
     embeddings = np.array(embeddings).astype("float32")
+
+    # Normalize for cosine similarity
     faiss.normalize_L2(embeddings)
 
-    start_index = index.ntotal
+    # Build flat index (exact search — fine for single paper)
+    index = faiss.IndexFlatIP(DIMENSION)
     index.add(embeddings)
-    end_index = index.ntotal - 1
 
+    # Save index
+    index_path = f"index_store/{data.index_id}.index"
     faiss.write_index(index, index_path)
 
+    # ✅ Also save the sorted chunk order as a manifest
+    # This allows future verification that row N == chunkIndex N
+    manifest_path = f"index_store/{data.index_id}.manifest.json"
+    manifest = [{"row": i, "chunkIndex": c["chunkIndex"]} for i, c in enumerate(sorted_chunks)]
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f)
+
     return {
-        "status": "added",
-        "index_id": data.index_id,
-        "start_index": start_index,
-        "end_index": end_index,
-        "total_vectors": index.ntotal
+        "status": "indexed",
+        "total_chunks": index.ntotal,
+        "index_id": data.index_id
     }
 
 @app.post("/search")

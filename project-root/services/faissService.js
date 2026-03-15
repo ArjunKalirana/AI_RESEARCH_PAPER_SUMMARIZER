@@ -2,10 +2,10 @@ const axios = require("axios");
 
 const FAISS_URL = "http://localhost:8001";
 
-async function addTexts(texts, index_id) {
-  const response = await axios.post(`${FAISS_URL}/add`, {
+async function indexChunks(chunks, index_id) {
+  const response = await axios.post(`${FAISS_URL}/index`, {
     index_id: index_id,
-    texts: texts,
+    chunks: chunks,
   });
   return response.data;
 }
@@ -32,4 +32,4 @@ async function computeSimilarity(text1, text2) {
   }
 }
 
-module.exports = { addTexts, searchQuery, computeSimilarity };
+module.exports = { indexChunks, searchQuery, computeSimilarity };

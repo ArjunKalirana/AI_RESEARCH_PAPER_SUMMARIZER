@@ -137,25 +137,91 @@
             container.scrollTop = container.scrollHeight;
 
             try {
-                // 3. Make API Call
+                // 3. Make API Call (Streaming)
                 const response = await fetch('/api/ask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ paperId, question })
                 });
 
-                const data = await response.json();
-                
-                // 4. Replace Loading message with actual response
-                const loadingEl = document.getElementById(loadingId);
-                if (loadingEl) {
-                    loadingEl.remove();
+                if (!response.ok) {
+                    const loadingEl = document.getElementById(loadingId);
+                    if (loadingEl) loadingEl.remove();
+                    appendAssistantMessage("Server returned an error.");
+                    return;
                 }
 
-                if (response.ok && data) {
-                    appendAssistantResponse(data);
-                } else {
-                    appendAssistantMessage(data.error || "An error occurred.");
+                // 4. Setup Streaming Reader
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let isFirstChunk = true;
+                
+                // Get the text container where we will append words
+                let messageContainer = null;
+                const loadingEl = document.getElementById(loadingId);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunkStr = decoder.decode(value, { stream: true });
+                    const events = chunkStr.split('\n\n');
+
+                    for (const event of events) {
+                        if (!event.startsWith('data: ')) continue;
+                        
+                        try {
+                            const dataStr = event.substring(6);
+                            if (!dataStr) continue;
+                            const data = JSON.parse(dataStr);
+
+                            if (data.error) {
+                                if (isFirstChunk && loadingEl) loadingEl.remove();
+                                appendAssistantMessage(data.error);
+                                break;
+                            }
+
+                            if (data.chunk) {
+                                if (isFirstChunk) {
+                                  // Replace "Thinking..." with actual text setup
+                                  if (loadingEl) {
+                                    const textDiv = loadingEl.querySelector('.text-base');
+                                    if (textDiv) {
+                                      textDiv.innerHTML = renderMarkdown(data.chunk);
+                                      messageContainer = textDiv;
+                                    }
+                                  }
+                                  isFirstChunk = false;
+                                } else if (messageContainer) {
+                                  // Append new chunk — rerender the whole accumulated text cleanly
+                                  messageContainer._raw = (messageContainer._raw || '') + data.chunk;
+                                  messageContainer.innerHTML = renderMarkdown(messageContainer._raw);
+                                }
+                                container.scrollTop = container.scrollHeight;
+                            }
+
+                            if (data.final) {
+                                // Final Metadata arrived (Confidence & Sources)
+                                // We inject the badge HTML directly into the existing message block header
+                                if (loadingEl) {
+                                    loadingEl.removeAttribute('id'); // It's no longer loading
+                                    const headerDiv = loadingEl.querySelector('.flex.items-center.gap-3');
+                                    let badgeHtml = getBadgeHtml(data);
+                                    if (headerDiv && badgeHtml) {
+                                        headerDiv.innerHTML += badgeHtml;
+                                    }
+                                    
+                                    let sourceHtml = getSourceHtml(data);
+                                    if (messageContainer && sourceHtml) {
+                                        messageContainer.insertAdjacentHTML('afterend', sourceHtml);
+                                    }
+                                }
+                            }
+
+                        } catch (err) {
+                            console.error("Stream parsing error:", err, dataStr);
+                        }
+                    }
                 }
 
             } catch (err) {
@@ -193,43 +259,48 @@
             chatContainer.insertAdjacentHTML('beforeend', html);
         }
 
-        function appendAssistantResponse(data) {
-            let badgeHtml = '';
-            if (data.confidenceLabel) {
-                let badgeClass = '';
-                if (data.confidenceLabel === 'High') {
-                    badgeClass = 'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/20 dark:text-green-400';
-                } else if (data.confidenceLabel === 'Medium') {
-                    badgeClass = 'bg-yellow-50 text-yellow-700 ring-yellow-600/20 dark:bg-yellow-900/20 dark:text-yellow-400';
-                } else {
-                    badgeClass = 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/20 dark:text-red-400';
-                }
-
-                badgeHtml = `
-                    <div class="flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ring-1 ring-inset ${badgeClass}">
-                        <span class="material-symbols-outlined text-[14px]">verified</span>
-                        ${Math.round((data.confidenceScore || 0) * 100)}% ${data.confidenceLabel}
-                    </div>
-                `;
+        function getBadgeHtml(data) {
+            if (!data.confidenceLabel) return '';
+            let badgeClass = '';
+            if (data.confidenceLabel === 'High') {
+                badgeClass = 'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/20 dark:text-green-400';
+            } else if (data.confidenceLabel === 'Medium') {
+                badgeClass = 'bg-yellow-50 text-yellow-700 ring-yellow-600/20 dark:bg-yellow-900/20 dark:text-yellow-400';
+            } else {
+                badgeClass = 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/20 dark:text-red-400';
             }
-            
-            let sourceHtml = '';
-            if (data.sources && data.sources.length > 0) {
-               sourceHtml = `
-                  <div class="flex flex-wrap items-center gap-4 pt-2 mt-4">
-                     <span class="text-[11px] font-semibold text-slate-400 uppercase">Sources: </span>
-                     ${data.sources.map(s => `
-                         <button class="flex items-center gap-1.5 text-[11px] font-semibold text-primary uppercase tracking-wider hover:opacity-80 transition-opacity">
-                             <span class="material-symbols-outlined text-sm">menu_book</span>
-                             ${s}
-                         </button>
-                     `).join('')}
-                  </div>
-               `;
-            }
+            const pct = Math.round((data.confidenceScore || 0) * 100);
+            return `
+                <div class="flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ring-1 ring-inset ${badgeClass}">
+                    <span class="material-symbols-outlined text-[14px]">verified</span>
+                    Confidence: ${pct}% &bull; ${data.confidenceLabel}
+                </div>
+            `;
+        }
 
-            const messageContext = `${data.answer} ${sourceHtml}`;
-            appendAssistantMessage(messageContext, badgeHtml);
+        function getSourceHtml(data) {
+            if (!data.sources || data.sources.length === 0) return '';
+            // Show only the first source section name as a clean pill
+            const firstSource = data.sources[0];
+            return `
+                <div class="flex flex-wrap items-center gap-2 pt-2 mt-3 border-t border-slate-100 dark:border-slate-800">
+                    <span class="text-[11px] font-semibold text-slate-400 uppercase">Source:</span>
+                    <span class="flex items-center gap-1 text-[11px] font-semibold text-primary uppercase tracking-wider">
+                        <span class="material-symbols-outlined text-sm">menu_book</span>
+                        ${firstSource}
+                    </span>
+                </div>
+            `;
+        }
+
+        // Minimal markdown renderer: bold + newlines only
+        function renderMarkdown(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
         }
     });
 </script>

@@ -6,7 +6,7 @@ const { extractSections } = require('../services/sectionExtractor');
 const { chunkText } = require('../services/chunker');
 const { normalizePaperJSON, validatePaperJSON } = require('../services/paperNormalizer');
 const { extractMetadata } = require('../services/metadataExtractor');
-const { addTexts } = require('../services/faissService');
+const { indexChunks } = require('../services/faissService');
 const { runQuery } = require('../services/neo4j.service');
 const { generateSummary, generateStructuredSummary } = require('../services/llmService');
 
@@ -68,10 +68,8 @@ async function uploadPaper(req, res) {
     const { paperId, title, year, source, authors } = normalizedPaper;
 
     // 4️⃣ Embed all chunks (FAISS - Isolated per paper)
-    for (const chunk of chunks) {
-      console.log(`Embedding chunk ${chunk.chunkIndex} for ${paperId}...`);
-      await addTexts([chunk.chunkText], paperId);
-    }
+    console.log(`Embedding all ${chunks.length} chunks for ${paperId}...`);
+    await indexChunks(chunks, paperId);
 
     // 5️⃣ Build Knowledge Graph (Neo4j)
     console.log(`📘 Ingesting into Neo4j: ${paperId}`);
