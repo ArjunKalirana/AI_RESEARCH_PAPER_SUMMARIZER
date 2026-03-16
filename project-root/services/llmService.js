@@ -136,6 +136,15 @@ function createRepetitionDetector(threshold = 5) {
 // ============================================================
 // MAIN FUNCTION
 // ============================================================
+const { OpenAI } = require("openai");
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
+
+// ============================================================
+// MAIN FUNCTION
+// ============================================================
 async function generateSummary(query, contextBlocks, chatHistory = [], onChunk = null) {
 
   // --- GUARDRAIL 1: Reject off-topic before calling LLM ---
@@ -145,105 +154,59 @@ async function generateSummary(query, contextBlocks, chatHistory = [], onChunk =
     return msg;
   }
 
-  // Send up to 6 chunks at 600 chars each — richer context within TinyLlama's token budget
+  // Chunks processing
   const topChunks = contextBlocks.slice(0, 6);
   const contextText = topChunks
-    .map((c, i) => `[${i + 1}] ${c.chunkText.slice(0, 600).trim()}`)
+    .map((c, i) => `[${i + 1}] ${c.chunkText.slice(0, 800).trim()}`)
     .join("\n---\n");
 
-  // Only last 2 history turns to balance token budget with larger context
-  const formattedHistory =
-    chatHistory.length > 0
-      ? chatHistory
-          .slice(-2)
-          .map((m) => `${m.role}: ${m.content}`)
-          .join("\n")
-      : "";
-
-  // Rigid prompt optimised for TinyLlama 1.1B — "specific" keyword forces concrete answers
-  const prompt = `### System:
-You are a research paper Q&A assistant. Your only job is to answer questions using the context chunks provided below.
-
+  const messages = [
+    {
+      role: "system",
+      content: `You are a research paper Q&A assistant. Your only job is to answer questions using the context chunks provided.
+      
 Strict rules:
 - Answer in 2-4 sentences maximum.
 - Use specific details: numbers, names, percentages, component names.
 - Never use phrases like "based on", "according to", "the context says".
 - Never repeat the same sentence twice.
-- Never add commentary about what you are doing.
-- If the answer is not in the context, output exactly this and nothing else:
-  This information is not covered in the paper.
+- If the answer is not in the context, output exactly: "This information is not covered in the paper."`
+    }
+  ];
 
-### Context:
-${contextText}
-${formattedHistory ? `### Conversation History:\n${formattedHistory}\n` : ""}
-### Question:
-${query}
+  // Add History
+  chatHistory.slice(-4).forEach(m => {
+      messages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content });
+  });
 
-### Answer (specific, direct, no repetition):`;
+  // Add current query with context
+  messages.push({
+    role: "user",
+    content: `CONTEXT:\n${contextText}\n\nQUESTION: ${query}`
+  });
 
   try {
-    const response = await axios.post(
-      "http://localhost:11434/api/generate",
-      {
-        model: "tinyllama",
-        prompt: prompt,
-        stream: true,
-        options: {
-          temperature: 0.1,      // as deterministic as possible
-          top_p: 0.75,
-          num_predict: 150,      // hard cap — short leash prevents runaway
-          repeat_penalty: 1.2,  // KEY FIX: breaks repetition probability loops
-          repeat_last_n: 64,
-          stop: ["###", "Question:", "Context:", "\n\n\n"]
-        }
-      },
-      { responseType: "stream" }
-    );
-
-    let rawResponse = "";
-    const detectRepetition = createRepetitionDetector(5);
-
-    return new Promise((resolve, reject) => {
-      response.data.on("data", (chunk) => {
-        try {
-          const lines = chunk.toString().split("\n").filter(Boolean);
-          for (const line of lines) {
-            const parsed = JSON.parse(line);
-            const token = parsed.response || "";
-
-            // Kill stream early if repetition loop detected
-            if (detectRepetition(token)) {
-              response.data.destroy();
-              const cleanAnswer = extractAnswerFromResponse(rawResponse, contextBlocks);
-              if (onChunk) {
-                const words = cleanAnswer.split(" ");
-                for (const w of words) onChunk(w + " ");
-              }
-              resolve(cleanAnswer);
-              return;
-            }
-
-            rawResponse += token;
-
-            if (parsed.done) {
-              const cleanAnswer = extractAnswerFromResponse(rawResponse, contextBlocks);
-              if (onChunk) {
-                const words = cleanAnswer.split(" ");
-                for (const w of words) onChunk(w + " ");
-              }
-              resolve(cleanAnswer);
-            }
-          }
-        } catch (e) {
-          /* skip malformed stream lines */
-        }
-      });
-
-      response.data.on("error", reject);
+    const stream = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo", // Or gpt-4o-mini
+      messages: messages,
+      temperature: 0.1,
+      stream: true,
     });
+
+    let fullText = "";
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        fullText += content;
+        if (onChunk) onChunk(content);
+      }
+    }
+
+    return extractAnswerFromResponse(fullText, contextBlocks);
+
   } catch (error) {
-    console.error("LLM Error:", error.message);
-    throw new Error("Failed to reach Ollama. Is it running?");
+    console.error("OpenAI Error:", error.message);
+    throw new Error("Failed to reach OpenAI. Check your API key.");
   }
 }
 
@@ -252,104 +215,57 @@ async function generateStructuredSummary(contextBlocks) {
     .map((c, i) => `Source ${i + 1}\nTitle: ${c.title}\nSection: ${c.section}\nContent: ${c.chunkText}`)
     .join("\n---\n");
 
-  const prompt = `
-You are an expert academic AI. Read the provided source paper chunks and generate a concise, structured academic summary.
-
-### RULES:
-- DO NOT use conversational filler (e.g., "Here is the summary", "Based on the text").
-- DO NOT mention the "provided context", "chunks", or the AI itself.
-- FOCUS entirely on facts, numbers, methodology, and results.
-- Your output MUST follow this exact Markdown format:
-
-### Problem
-[Describe the core problem or gap in 2-3 sentences]
-
-### Proposed Approach
-[How does the paper solve the problem?]
-
-### Methodology
-[What data, experiments, or architectures were used?]
-
-### Key Results
-[List numerical findings and primary outcomes]
-
-### Contribution
-[What is the main takeaway or impact of this paper?]
-
----
-
-### Source Paper Chunks:
-${contextText}
-
-### Academic Summary:
-`;
-
   try {
-    const response = await axios.post(
-      "http://localhost:11434/api/generate",
-      {
-        model: "tinyllama",
-        prompt: prompt,
-        stream: false,
-        options: {
-          temperature: 0.2,
-          top_p: 0.8,
-          num_predict: 800 // Extended for longer structured output
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert academic AI. Read the provided source paper chunks and generate a concise, structured academic summary. DO NOT use conversational filler. FOCUS entirely on facts, numbers, methodology, and results."
+        },
+        {
+          role: "user",
+          content: `Generate a structured summary in Markdown format with these headers: ### Problem, ### Proposed Approach, ### Methodology, ### Key Results, ### Contribution.\n\nSOURCE PAPER CHUNKS:\n${contextText}`
         }
-      }
-    );
+      ],
+      temperature: 0.2,
+    });
 
-    return response.data.response.trim();
+    return response.choices[0].message.content.trim();
 
   } catch (error) {
-    console.error("LLM Error generating structured summary:", error.message);
+    console.error("OpenAI Error generating structured summary:", error.message);
     return "Error generating structured summary.";
   }
 }
 
 async function rewriteQuery(query, chatHistory = []) {
   if (!chatHistory || chatHistory.length === 0) {
-    return query; // No need to rewrite if no history
+    return query;
   }
 
   const formattedHistory = chatHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n");
 
-  const prompt = `### System:
-You are an expert search query generator. Based on the Chat History, rewrite the User's Follow-up Question into a single, standalone search query that contains all necessary context. Do NOT answer the question. Just output the refined search query.
-
-Rules:
-1. Replace pronouns (it, they, them, this, that strategy, etc.) with the exact entities from the History.
-2. Keep it concise, keyword-rich, and optimized for vector search.
-3. Output ONLY the rewritten string, nothing else.
-
-### Chat History:
-${formattedHistory}
-
-### User Follow-up Question:
-${query}
-
-### Standalone Search Query:`;
-
   try {
-    const response = await axios.post(
-      "http://localhost:11434/api/generate",
-      {
-        model: "tinyllama",
-        prompt: prompt,
-        stream: false,
-        options: {
-          temperature: 0.1,
-          num_predict: 100 
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert search query generator. Rewrite the User's Follow-up Question into a single standalone search query. Replace pronouns with entities from history. Output ONLY the rewritten string."
+        },
+        {
+          role: "user",
+          content: `HISTORY:\n${formattedHistory}\n\nUSER QUESTION: ${query}\n\nREWRITTEN QUERY:`
         }
-      }
-    );
+      ],
+      temperature: 0.1,
+    });
 
-    const rewritten = response.data.response.trim();
-    console.log(`[RAG Query Rewriter] Original: "${query}" -> Rewritten: "${rewritten}"`);
-    return rewritten;
+    return response.choices[0].message.content.trim();
   } catch (error) {
-    console.error("LLM Error rewriting query:", error.message);
-    return query; // Fallback to original
+    console.error("OpenAI Error rewriting query:", error.message);
+    return query;
   }
 }
 
