@@ -1,7 +1,6 @@
 const axios = require("axios");
 
-const FAISS_URL = "http://localhost:8001";
-
+const FAISS_URL = process.env.FAISS_URL || "http://localhost:8001";
 async function indexChunks(chunks, index_id) {
   const response = await axios.post(`${FAISS_URL}/index`, {
     index_id: index_id,

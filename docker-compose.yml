@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  faiss-service:
+    build: 
+      context: ./faiss-service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./faiss-service/index_store:/app/index_store
+    restart: always
+
+  backend:
+    build: 
+      context: ./project-root
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/usr/src/frontend
+    environment:
+      - FAISS_URL=http://faiss-service:8001
+      - PORT=3000
+      # Add your OpenAI API Key here before running
+      # - OPENAI_API_KEY=sk-...
+    depends_on:
+      - faiss-service
+    restart: always
