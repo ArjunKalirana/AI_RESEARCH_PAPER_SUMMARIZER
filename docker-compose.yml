@@ -10,6 +10,17 @@ services:
       - ./faiss-service/index_store:/app/index_store
     restart: always
 
+  neo4j:
+    image: neo4j:5.12.0
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/HelloWorld@4321
+    volumes:
+      - ./data/neo4j:/data
+    restart: always
+
   backend:
     build: 
       context: ./project-root
@@ -19,9 +30,10 @@ services:
       - ./frontend:/usr/src/frontend
     environment:
       - FAISS_URL=http://faiss-service:8001
+      - NEO4J_URL=bolt://neo4j:7687
       - PORT=3000
-      # Add your OpenAI API Key here before running
-      # - OPENAI_API_KEY=sk-...
+      - OPENAI_API_KEY=your-key-here
     depends_on:
       - faiss-service
+      - neo4j
     restart: always
