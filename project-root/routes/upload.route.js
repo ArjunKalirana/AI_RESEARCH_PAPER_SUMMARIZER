@@ -2,12 +2,18 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { uploadPaper } = require('../controllers/upload.controller');
+
+const RAW_PAPERS_DIR = path.join(__dirname, '../data/raw_papers');
+if (!fs.existsSync(RAW_PAPERS_DIR)) {
+  fs.mkdirSync(RAW_PAPERS_DIR, { recursive: true });
+}
 
 // Configure multer for PDF uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../data/raw_papers'));
+    cb(null, RAW_PAPERS_DIR);
   },
   filename: function (req, file, cb) {
     // Sanitize filename: remove spaces and special characters
