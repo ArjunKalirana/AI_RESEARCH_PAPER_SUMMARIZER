@@ -9,7 +9,8 @@ RUN apk add --no-cache \
     jpeg-dev \
     giflib-dev \
     librsvg-dev \
-    python3
+    python3 \
+    py3-setuptools
 
 WORKDIR /usr/src/app
 
