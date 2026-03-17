@@ -17,25 +17,50 @@ if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
+/**
+ * Helper to send SSE events
+ */
+function sendEvent(res, data) {
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
 async function uploadPaper(req, res) {
+  const isSSE = req.path.includes('stream');
+
   try {
     if (!req.file) {
+      if (isSSE) {
+        sendEvent(res, { stage: 'error', label: 'No PDF file uploaded', error: true });
+        return res.end();
+      }
       return res.status(400).json({ success: false, error: 'No PDF file uploaded.' });
+    }
+
+    if (isSSE) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
     }
 
     const { filename, path: filePath, originalname } = req.file;
     console.log(`📄 Processing upload: ${filename}`);
 
     // 1️⃣ Extract and Clean Text
+    if (isSSE) sendEvent(res, { stage: 'parsing', label: 'Parsing PDF...', percent: 15 });
     const rawText = await extractTextFromPDF(filePath);
     if (!rawText || rawText.length < 500) {
-      return res.status(400).json({ success: false, error: 'PDF contains too little text.' });
+      throw new Error('PDF contains too little text.');
     }
+
+    if (isSSE) sendEvent(res, { stage: 'cleaning', label: 'Cleaning text...', percent: 30 });
     const cleanedText = cleanText(rawText);
     const metadata = extractMetadata(cleanedText, originalname);
 
     // 2️⃣ Extract Sections & Chunk Text
+    if (isSSE) sendEvent(res, { stage: 'sections', label: 'Extracting sections...', percent: 45 });
     const sections = extractSections(cleanedText);
+    
     function assignSectionToChunk(chunkText, sections) {
       for (const [sectionName, sectionText] of Object.entries(sections)) {
         if (sectionText && chunkText && sectionText.includes(chunkText.slice(0, 50))) {
@@ -45,6 +70,7 @@ async function uploadPaper(req, res) {
       return null;
     }
 
+    if (isSSE) sendEvent(res, { stage: 'chunking', label: 'Chunking content...', percent: 60 });
     const chunks = chunkText(cleanedText).map(chunk => ({
       chunkIndex: chunk.chunkIndex,
       chunkText: chunk.text,
@@ -67,7 +93,8 @@ async function uploadPaper(req, res) {
     validatePaperJSON(normalizedPaper);
     const { paperId, title, year, source, authors } = normalizedPaper;
 
-    // 4️⃣ Embed all chunks (FAISS - Isolated per paper)
+    // 4️⃣ Embed all chunks (FAISS)
+    if (isSSE) sendEvent(res, { stage: 'indexing', label: 'Building vector index...', percent: 75 });
     console.log(`Embedding all ${chunks.length} chunks for ${paperId}...`);
     await indexChunks(chunks, paperId);
 
@@ -98,21 +125,19 @@ async function uploadPaper(req, res) {
     }
 
     // 6️⃣ Generate Initial Summary
+    if (isSSE) sendEvent(res, { stage: 'summarizing', label: 'Generating AI summaries...', percent: 90 });
     console.log(`🧠 Generating Initial Summary for ${paperId}...`);
     const abstractChunk = chunks.find(c => c.sectionName === 'abstract') || chunks[0];
     const conclusionChunk = chunks.find(c => c.sectionName === 'conclusion') || chunks[chunks.length - 1];
     
-    // De-duplicate if they happen to be the same chunk
     const selectedChunks = abstractChunk === conclusionChunk ? [abstractChunk] : [abstractChunk, conclusionChunk];
-    
-    const summaryContext = selectedChunks.map((c, i) => ({
+    const summaryContext = selectedChunks.map(c => ({
         title, year, section: c.sectionName || "Intro/Outro", chunkText: c.chunkText
     }));
     
     const summaryPreview = await generateStructuredSummary(summaryContext);
     
     // 6.5️⃣ Generate individual summaries for each section
-    console.log(`🧠 Generating summaries for ${Object.keys(sections).length} sections...`);
     const summarizedSections = {};
     for (const [sName, sText] of Object.entries(sections)) {
       if (sText && sText.length > 50) {
@@ -122,7 +147,6 @@ async function uploadPaper(req, res) {
       }
     }
     
-    // Use summarized sections in the normalized paper
     normalizedPaper.sections = summarizedSections;
     normalizedPaper.summaryPreview = summaryPreview;
     
@@ -131,19 +155,22 @@ async function uploadPaper(req, res) {
     fs.writeFileSync(outPath, JSON.stringify(normalizedPaper, null, 2));
     console.log(`✅ Request Complete: ${paperId}`);
 
-    res.json({
-      success: true,
-      paperId,
-      title,
-      summaryPreview
-    });
+    if (isSSE) {
+      sendEvent(res, { stage: 'done', label: 'Complete!', percent: 100, paperId });
+      res.end();
+    } else {
+      res.json({ success: true, paperId, title, summaryPreview });
+    }
 
   } catch (error) {
     console.error('❌ Upload Error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    if (isSSE) {
+      sendEvent(res, { stage: 'error', label: `Failed: ${error.message}`, error: true });
+      res.end();
+    } else {
+      res.status(500).json({ success: false, error: error.message });
+    }
   }
 }
 
-module.exports = {
-  uploadPaper
-};
+module.exports = { uploadPaper };

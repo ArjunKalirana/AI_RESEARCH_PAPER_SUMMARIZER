@@ -33,71 +33,64 @@
     </style>
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 h-screen flex flex-col">
-<header class="flex h-16 w-full items-center justify-between border-b border-slate-100 bg-white px-4 sm:px-8 dark:border-slate-800 dark:bg-slate-900 z-50 sticky top-0">
-    <div class="flex items-center gap-4 sm:gap-8 h-full">
-        <div class="flex items-center gap-2 cursor-pointer" onclick="window.location.href='upload.html'">
-            <div class="bg-primary p-1 rounded-lg">
-                <span class="material-symbols-outlined text-white text-lg">school</span>
-            </div>
-            <span class="hidden xs:block font-bold text-sm tracking-tight">ResAI</span>
-        </div>
-        <nav class="flex h-full items-center gap-4 sm:gap-8">
-            <a class="flex h-full items-center text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-600 border-b-2 border-transparent transition-colors" href="upload.html">Upload</a>
-            <a class="flex h-full items-center text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-600 border-b-2 border-transparent transition-colors" href="summary.html">Summary</a>
-            <a class="flex h-full items-center text-xs sm:text-sm font-semibold text-primary border-b-2 border-primary" href="#">Chat</a>
-        </nav>
-    </div>
-    <div class="flex items-center gap-3">
-        <div class="hidden sm:flex items-center gap-2 text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full dark:bg-slate-800">
-            <span class="material-symbols-outlined text-sm">description</span>
-            <span class="max-w-[100px] truncate">Current Paper</span>
-        </div>
-        <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-            <span class="material-symbols-outlined text-primary text-xl">account_circle</span>
-        </div>
-    </div>
+<header class="flex h-14 w-full items-center justify-between border-b border-slate-100 bg-white px-8 dark:border-slate-800 dark:bg-slate-900 z-20">
+<div class="flex items-center gap-8 h-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-2xl">Research</span>
+<span class="font-semibold text-sm tracking-tight">AI</span>
+</div>
+<nav class="flex h-full items-center gap-8">
+<a class="flex h-full items-center text-sm font-medium text-slate-400 hover:text-slate-600 border-b-2 border-transparent transition-colors" href="upload.html">Upload</a>
+<a class="flex h-full items-center text-sm font-medium text-slate-400 hover:text-slate-600 border-b-2 border-transparent transition-colors" href="summary.html">Summary</a>
+<a class="flex h-full items-center text-sm font-semibold text-primary border-b-2 border-primary" href="#">Ask AI</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-50 px-3 py-1 rounded-full dark:bg-slate-800">
+<span class="material-symbols-outlined text-sm">description</span>
+<span class="max-w-[150px] truncate">of research paper</span>
+</div>
+<div class="h-8 w-8 rounded-full bg-slate-100 overflow-hidden">
+<img alt="User avatar" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAURngEMJFEUA7JSRtvw4dGxdeMK21lzTmUxVIsB1-IF9eJvSs2IE925i0s7UwVpru4c8IS7NE5Nej1Chrn0HcZAZjnZ3n6yICevpzj92BGVb4zlrHB8_zyj1nMeicvUBhDVUaZrbod-aV1dkEOfkEkAtafUJo8OH055mEhVuKwYl1KqFDLVsiT6Ms60OWHd2aU7Rsgi47krRlnT2a4ngUS74FY77j2egaCV7xbAXEPr0HI3dKlVez4CGA4uK8HFzh_WCEKc1ftEHs"/>
+</div>
+</div>
 </header>
-
 <main class="relative flex flex-1 flex-col overflow-hidden">
-    <div class="flex-1 overflow-y-auto custom-scrollbar pt-6 sm:pt-10 pb-40">
-        <div id="chatContainer" class="mx-auto max-w-3xl px-4 sm:px-6 space-y-8 sm:space-y-10">
-            <!-- Dynamic Chat Messages -->
-            <div class="space-y-3">
-                <div class="flex items-center gap-3">
-                    <span class="text-[10px] font-extrabold uppercase tracking-widest text-primary">System Assistant</span>
+<div class="flex-1 overflow-y-auto custom-scrollbar pt-10 pb-32">
+<div id="chatContainer" class="mx-auto max-w-3xl px-6 space-y-10">
+<!-- Dynamic Chat Messages Will Go Here -->
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assistant</span>
+</div>
+<div class="text-base leading-relaxed text-slate-700 dark:text-slate-300">
+                    Hello. I have analyzed the uploaded paper. What specific aspect would you like to explore first?
                 </div>
-                <div class="text-sm sm:text-base leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    Hello! I've fully indexed the uploaded paper. You can ask me about the methodology, key findings, or specific data points. How can I help you today?
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Input Section -->
-    <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent pb-6 sm:pb-8 pt-10 dark:from-background-dark dark:via-background-dark">
-        <div class="mx-auto max-w-3xl px-4 sm:px-6">
-            <!-- Suggestions -->
-            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar mb-4 pb-1">
-                <button class="flex-none whitespace-nowrap rounded-full bg-white border border-slate-200 px-4 py-1.5 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary transition-all dark:bg-slate-900 dark:border-slate-800">
-                    Key Contributions
+</div>
+</div>
+</div>
+<div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white/95 to-transparent pb-8 pt-12 dark:from-background-dark dark:via-background-dark/95">
+<div class="mx-auto max-w-3xl px-6">
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar mb-4">
+<button class="whitespace-nowrap rounded-full bg-slate-50 border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-primary hover:text-primary transition-all dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400">
+                    What is the main contribution?
                 </button>
-                <button class="flex-none whitespace-nowrap rounded-full bg-white border border-slate-200 px-4 py-1.5 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary transition-all dark:bg-slate-900 dark:border-slate-800">
-                    Methodology Review
+<button class="whitespace-nowrap rounded-full bg-slate-50 border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-primary hover:text-primary transition-all dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400">
+                    Explain methodology
                 </button>
-                <button class="flex-none whitespace-nowrap rounded-full bg-white border border-slate-200 px-4 py-1.5 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary transition-all dark:bg-slate-900 dark:border-slate-800">
-                    Main Findings
+<button class="whitespace-nowrap rounded-full bg-slate-50 border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-primary hover:text-primary transition-all dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400">
+                    Summary of results
                 </button>
-            </div>
-            
-            <div class="relative flex items-center transition-all focus-within:shadow-md focus-within:border-primary/50 group rounded-2xl bg-white px-2 py-1.5 border-2 border-slate-100 shadow-sm dark:bg-slate-900 dark:border-slate-800">
-                <input id="chatInput" class="w-full border-none bg-transparent px-3 sm:px-4 py-2 text-sm focus:outline-none focus:ring-0 placeholder:text-slate-400 dark:text-white" placeholder="Ask a question about the paper..." type="text"/>
-                <button id="sendBtn" class="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-primary text-white transition-all hover:shadow-lg active:scale-95">
-                    <span class="material-symbols-outlined text-xl">send</span>
-                </button>
-            </div>
-            <p class="mt-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Research Engine Enabled</p>
-        </div>
-    </div>
+</div>
+<div class="relative flex items-center transition-all focus-within:ring-1 focus-within:ring-slate-300 rounded-full bg-white px-2 py-1.5 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-800 dark:focus-within:ring-slate-700">
+<input id="chatInput" class="w-full border-none bg-transparent px-4 py-2 text-sm focus:outline-none focus:ring-0 placeholder:text-slate-400 dark:text-white" placeholder="Ask anything about this paper..." type="text"/>
+<button id="sendBtn" class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white transition-transform active:scale-95">
+<span class="material-symbols-outlined text-lg">-></span>
+</button>
+</div>
+<p class="mt-3 text-center text-[10px] text-slate-400">Academic Assistant • Powered by ResearchAI</p>
+</div>
+</div>
 </main>
 <script>
     document.addEventListener('DOMContentLoaded', () => {

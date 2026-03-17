@@ -36,5 +36,6 @@ const upload = multer({
 });
 
 router.post('/upload', upload.single('paper'), uploadPaper);
+router.post('/upload-stream', upload.single('paper'), uploadPaper);
 
 module.exports = router;
