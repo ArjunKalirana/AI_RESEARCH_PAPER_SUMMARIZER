@@ -5,7 +5,6 @@ const { runQuery } = require('../services/neo4j.service');
 const { generateSummary, rewriteQuery, generateFollowUpSuggestions } = require('../services/llmService');
 const { getChatHistory, addMessageToHistory } = require('../services/sessionService');
 
-const vectorMapPath = path.join(__dirname, '../data/vector_map.json'); // Deprecated
 const processedPath = path.join(__dirname, '../data/processed_papers');
 
 /* ================================
@@ -17,11 +16,12 @@ async function evaluateRetrieval(query, hybridContext) {
   }
   
   let totalSim = 0;
-  for (const c of hybridContext) {
-    const simRes = await computeSimilarity(query, c.chunkText);
-    totalSim += simRes.similarity;
-  }
+  // Use Promise.all to avoid sequential AI calls
+  const simResults = await Promise.all(
+    hybridContext.map(c => computeSimilarity(query, c.chunkText))
+  );
   
+  simResults.forEach(res => { totalSim += res.similarity; });
   const avgSim = totalSim / hybridContext.length;
 
   return {
@@ -39,21 +39,12 @@ async function evaluateFaithfulness(summary, hybridContext) {
   if (hybridContext.length === 0 || !summaryText ||
       summaryText.includes("not confident enough") ||
       summaryText.includes("I cannot answer this")) {
-    return { hallucinationRatio: "0.00", hallucinationCount: 0, sample: [] };
+    return { groundingScore: "0.00" };
   }
 
   const contextText = hybridContext.map(c => c.chunkText).join(" ");
   const simRes = await computeSimilarity(summaryText, contextText);
-  const groundingScore = simRes.similarity;
-  
-  const hallucinationRatio = Math.max(0, 1 - groundingScore);
-
-  return {
-    hallucinationCount: 0,
-    hallucinationRatio: hallucinationRatio.toFixed(2),
-    sample: [],
-    groundingScore: groundingScore.toFixed(2)
-  };
+  return { groundingScore: simRes.similarity.toFixed(2) };
 }
 
 function getConfidenceLabel(score) {
@@ -66,6 +57,18 @@ function getConfidenceLabel(score) {
    Main Ask Controller
 ================================ */
 async function askQuestion(req, res) {
+  let isStreamClosed = false;
+  
+  // Safeguard: Detect client disconnect
+  req.on('close', () => {
+    isStreamClosed = true;
+  });
+
+  const sendSSE = (data) => {
+    if (isStreamClosed || res.writableEnded) return;
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
   try {
     const { paperId, question } = req.body;
 
@@ -79,7 +82,12 @@ async function askQuestion(req, res) {
     res.flushHeaders();
 
     const chatHistory = await getChatHistory(paperId);
-    const refinedQuery = await rewriteQuery(question, chatHistory);
+    
+    // 1️⃣ Resolve context & Retrieve
+    const [refinedQuery] = await Promise.all([
+        rewriteQuery(question, chatHistory)
+    ]);
+
     const searchResult = await searchQuery(refinedQuery, paperId, 6);
     const allIndices = searchResult.indices || []; 
     const allDistances = searchResult.distances || [];
@@ -103,7 +111,6 @@ async function askQuestion(req, res) {
         const graphData = graphRes.records[0]?.toObject();
         const sortedChunks = [...paper.chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
 
-        // Indices/Distances from reranker might be flat array or nested
         const flatIndices = Array.isArray(allIndices[0]) ? allIndices[0] : allIndices;
         const flatDistances = Array.isArray(allDistances[0]) ? allDistances[0] : allDistances;
 
@@ -111,17 +118,13 @@ async function askQuestion(req, res) {
             const index = flatIndices[i];
             const similarity = flatDistances[i];
             
-            // Check if it's a direct chunk (from reranker results)
             let chunk = sortedChunks[index];
-            
-            // If the search result has no index mapping but has text (reranker style)
             if (searchResult.results && searchResult.results[i]) {
-                const res = searchResult.results[i];
-                chunk = { chunkText: res.text, sectionName: res.sectionName || "Section" };
+                const rs = searchResult.results[i];
+                chunk = { chunkText: rs.text, sectionName: rs.sectionName || "Section" };
             }
 
-            if (!chunk) continue;
-            if (similarity < 0.20) continue; 
+            if (!chunk || similarity < 0.20) continue;
 
             hybridContext.push({
               paperId: paperId,
@@ -140,39 +143,45 @@ async function askQuestion(req, res) {
     }
 
     if (hybridContext.length === 0) {
-      const fallbackMsg = "I am not confident enough to answer this question based on the uploaded paper.";
-      res.write(`data: ${JSON.stringify({ chunk: fallbackMsg })}\n\n`);
-      res.write(`data: ${JSON.stringify({ final: true, confidenceScore: 0.0, confidenceLabel: "Low", sources: [] })}\n\n`);
+      sendSSE({ chunk: "I am not confident enough to answer this based on the paper." });
+      sendSSE({ final: true, confidenceScore: 0.0, confidenceLabel: "Low", sources: [] });
       return res.end();
     }
 
-    // 3️⃣ Generate LLM Answer (Streaming)
+    // 2️⃣ Generate LLM Answer (Streaming)
     const answer = await generateSummary(question, hybridContext, chatHistory, (chunk) => {
-      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+      sendSSE({ chunk });
     });
 
+    if (isStreamClosed) return;
+
+    // 3️⃣ Parallel Post-Processing (Optimization: Run evaluations and suggestions together)
+    const paperTitle = hybridContext[0]?.title || "Research Paper";
+    
+    console.log("🚀 Starting parallel post-processing...");
+    const [retrievalRes, faithfulnessRes, suggestions] = await Promise.all([
+      evaluateRetrieval(question, hybridContext),
+      evaluateFaithfulness(answer, hybridContext),
+      generateFollowUpSuggestions(question, answer, paperTitle)
+    ]);
+
+    // Update History
     await addMessageToHistory(paperId, "user", question);
     await addMessageToHistory(paperId, "assistant", answer);
 
-    const retrievalMetrics = await evaluateRetrieval(question, hybridContext);
-    const faithfulnessMetrics = await evaluateFaithfulness(answer, hybridContext);
-
-    const finalConfidence = parseFloat((0.4 * (faithfulnessMetrics.groundingScore || 0) + 0.6 * parseFloat(retrievalMetrics.precision)).toFixed(2));
+    // Confidence Logic
+    const finalConfidence = parseFloat((0.4 * parseFloat(faithfulnessRes.groundingScore) + 0.6 * parseFloat(retrievalRes.precision)).toFixed(2));
     const confidenceLabel = getConfidenceLabel(finalConfidence);
 
-    // 6️⃣ Send Final Event with Metadata
-    res.write(`data: ${JSON.stringify({
+    // 4️⃣ Final Events
+    sendSSE({
       final: true,
       confidenceScore: finalConfidence,
       confidenceLabel,
       sources
-    })}\n\n`);
+    });
     
-    // 7️⃣ Generate and Send Follow-up Suggestions (NEW)
-    const paperTitle = hybridContext[0]?.title || "Research Paper";
-    const suggestions = await generateFollowUpSuggestions(question, answer, paperTitle);
-    
-    res.write(`data: ${JSON.stringify({ suggestions })}\n\n`);
+    sendSSE({ suggestions });
     
     res.end();
 
@@ -181,19 +190,10 @@ async function askQuestion(req, res) {
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to process question' });
     } else {
-      res.write(`data: ${JSON.stringify({ error: 'An error occurred during generation.' })}\n\n`);
+      sendSSE({ error: 'An error occurred during generation.' });
       res.end();
     }
   }
-}
-
-function inferSectionName(chunkIndex, totalChunks) {
-  const position = chunkIndex / totalChunks;
-  if (position < 0.1) return "Abstract / Introduction";
-  if (position < 0.25) return "Introduction";
-  if (position < 0.5) return "Methodology";
-  if (position < 0.75) return "Results / Discussion";
-  return "Conclusion / References";
 }
 
 module.exports = { askQuestion };

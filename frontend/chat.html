@@ -144,6 +144,7 @@
             
             scrollToBottom();
 
+            let reader = null;
             try {
                 const response = await fetch('/api/ask', {
                     method: 'POST',
@@ -152,21 +153,23 @@
                 });
 
                 if (!response.ok) {
-                    updateAssistantMessage(loadingId, "I'm sorry, I encountered a server error. Please try again.");
+                    updateAssistantMessage(loadingId, "I'm sorry, I encountered a server error.");
                     return;
                 }
 
-                const reader = response.body.getReader();
+                reader = response.body.getReader();
                 const decoder = new TextDecoder('utf-8');
                 let isFirstChunk = true;
                 let fullText = "";
+                let buffer = "";
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    const chunkStr = decoder.decode(value, { stream: true });
-                    const events = chunkStr.split('\n\n');
+                    buffer += decoder.decode(value, { stream: true });
+                    const events = buffer.split('\n\n');
+                    buffer = events.pop();
 
                     for (const event of events) {
                         if (!event.startsWith('data: ')) continue;
@@ -190,12 +193,10 @@
                             }
 
                             if (data.final) {
-                                // Add sources and confidence badges
                                 injectMetadata(loadingId, data);
                             }
 
                             if (data.suggestions) {
-                                // Render follow-up chips
                                 renderSuggestions(loadingId, data.suggestions);
                                 scrollToBottom();
                             }
@@ -205,7 +206,9 @@
                 }
 
             } catch (err) {
-                updateAssistantMessage(loadingId, "Failed to connect to the server.");
+                updateAssistantMessage(loadingId, "Connection lost.");
+            } finally {
+               if (reader) reader.releaseLock();
             }
         }
 
@@ -275,6 +278,9 @@
         function renderSuggestions(id, suggestions) {
             const el = document.getElementById(id);
             if (!el) return;
+
+            // Prevent duplicate suggestion boxes
+            if (el.querySelector('.suggestions-container')) return;
 
             const container = document.createElement('div');
             container.className = 'suggestions-container flex flex-wrap gap-2 mt-4 animate-in';
