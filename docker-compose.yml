@@ -8,6 +8,9 @@ services:
       - "8001:8001"
     volumes:
       - ./faiss-service/index_store:/app/index_store
+      - ./faiss-service/models:/app/models
+    environment:
+      - SENTENCE_TRANSFORMERS_HOME=/app/models
     restart: always
 
   neo4j:
