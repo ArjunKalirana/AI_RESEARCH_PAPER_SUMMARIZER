@@ -2,7 +2,7 @@ const Groq = require("groq-sdk");
 
 // --- MODEL TIERING (Fixes 429 Rate Limits) ---
 const CHAT_MODEL = "llama-3.3-70b-versatile";     // For high-quality chat
-const SUMMARY_MODEL = "llama-3-8b-8192";           // For high-volume summarization (Higher TPD limits)
+const SUMMARY_MODEL = "llama-3.1-8b-instant";      // For high-volume tasks (Higher rate limits)
 
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY
@@ -181,6 +181,7 @@ async function summarizePaperSection(sectionName, sectionText) {
   } catch (error) {
     console.error(`❌ Groq Section Summary Error (${sectionName}):`, error.message);
     // Fallback: If AI fails, return a "Smart Snippet" instead of an error message
+    const snippet = sectionText.slice(0, 400).trim();
     return snippet + (sectionText.length > 400 ? "..." : "");
   }
 }
