@@ -1,393 +1,405 @@
 <!DOCTYPE html>
 <html class="light" lang="en">
 <head>
-    <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>ResearchAi - Upload Research Paper</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#1e68f1",
-                        "background-light": "#f5f6f8",
-                        "background-dark": "#101622",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"]
-                    },
-                    borderRadius: {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                },
-            },
-        }
-    </script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .pulsing-dot {
-            width: 10px;
-            height: 10px;
-            background-color: #1e68f1;
-            border-radius: 50%;
-            display: inline-block;
-            box-shadow: 0 0 0 0 rgba(30, 104, 241, 0.7);
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(30, 104, 241, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(30, 104, 241, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(30, 104, 241, 0); }
-        }
-        .stage-item { transition: all 0.3s ease; }
-        .stage-pending { color: #94a3b8; }
-        .stage-active { color: #1e68f1; font-weight: 700; }
-        .stage-done { color: #10b981; }
-    </style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ResearchAi - Upload Research Paper</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#1e68f1",
+          "background-light": "#f5f6f8",
+          "background-dark": "#101622",
+        },
+        fontFamily: { "display": ["Inter", "sans-serif"] },
+        borderRadius: {
+          "DEFAULT": "0.25rem", "lg": "0.5rem",
+          "xl": "0.75rem", "full": "9999px"
+        },
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; }
+
+  /* Pulsing dot for active stage */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(1.35); }
+  }
+  .pulse-dot { animation: pulse-dot 1.2s ease-in-out infinite; }
+
+  /* Smooth progress bar fill */
+  #progressBar { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+
+  /* Stage row slide-in */
+  @keyframes stage-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .stage-row { animation: stage-in 0.3s ease forwards; }
+</style>
 </head>
+
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
 
-<!-- Top Navigation Bar -->
+<!-- ── Top Navigation Bar ────────────────────────────────────────────────── -->
 <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-2 group cursor-pointer" onclick="window.location.href='/'">
-            <div class="bg-primary p-1.5 rounded-lg text-white">
-                <span class="material-symbols-outlined text-xl block">auto_awesome</span>
-            </div>
-            <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ReseachAi</h1>
-        </div>
-        <nav class="hidden md:flex items-center gap-12">
-            <div class="flex items-center gap-2 text-primary font-semibold border-b-2 border-primary pb-5 mt-5">
-                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs">1</span>
-                <span>Upload</span>
-            </div>
-            <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-medium pb-5 mt-5 border-b-2 border-transparent">
-                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-xs">2</span>
-                <span>Summary</span>
-            </div>
-            <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-medium pb-5 mt-5 border-b-2 border-transparent">
-                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-xs">3</span>
-                <span>Ask AI</span>
-            </div>
-        </nav>
-        <div class="flex items-center gap-4">
-            <button class="p-2 text-slate-500 hover:text-primary transition-colors">
-                <span class="material-symbols-outlined">help</span>
-            </button>
-            <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 cursor-pointer">
-                <span class="material-symbols-outlined text-xl">account_circle</span>
-            </div>
-        </div>
+  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-2 group cursor-pointer" onclick="window.location.href='/'">
+      <div class="bg-primary p-1.5 rounded-lg text-white">
+        <span class="material-symbols-outlined text-xl block">auto_awesome</span>
+      </div>
+      <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ReseachAi</h1>
     </div>
+    <nav class="hidden md:flex items-center gap-12">
+      <div class="flex items-center gap-2 text-primary font-semibold border-b-2 border-primary pb-5 mt-5">
+        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs">1</span>
+        <span>Upload</span>
+      </div>
+      <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-medium pb-5 mt-5 border-b-2 border-transparent">
+        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-xs">2</span>
+        <span>Summary</span>
+      </div>
+      <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-medium pb-5 mt-5 border-b-2 border-transparent">
+        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-xs">3</span>
+        <span>Ask AI</span>
+      </div>
+    </nav>
+    <div class="flex items-center gap-4">
+      <button class="p-2 text-slate-500 hover:text-primary transition-colors">
+        <span class="material-symbols-outlined">help</span>
+      </button>
+      <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 cursor-pointer">
+        <span class="material-symbols-outlined text-xl">account_circle</span>
+      </div>
+    </div>
+  </div>
 </header>
 
+<!-- ── Main Content ────────────────────────────────────────────────────────── -->
 <main class="flex-grow flex items-center justify-center p-6">
-    <div class="w-full max-w-3xl flex flex-col gap-10">
-        <!-- Hero Heading Section -->
-        <div class="text-center space-y-3">
-            <span class="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider rounded-full">Intelligent Analysis</span>
-            <h2 class="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">Step 1: Upload Research Paper</h2>
-            <p class="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
-                Select a PDF document from your computer to generate an instant AI-powered summary and interactive Q&A session.
-            </p>
-        </div>
+  <div class="w-full max-w-3xl flex flex-col gap-10">
 
-        <!-- Dropzone Section -->
-        <div id="dropzoneContainer" class="relative group">
-            <div class="absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-xl blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
-            <div id="dropzone" class="relative flex flex-col items-center justify-center gap-8 p-16 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-primary dark:hover:border-primary transition-all cursor-pointer group/upload" onclick="document.getElementById('fileInput').click()">
-                <div class="w-20 h-20 rounded-full bg-background-light dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover/upload:text-primary group-hover/upload:scale-110 transition-all duration-300">
-                    <span class="material-symbols-outlined text-4xl">upload_file</span>
-                </div>
-                <div class="text-center space-y-2">
-                    <p class="text-xl font-bold text-slate-900 dark:text-white">Click to select or drag and drop</p>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">PDF documents only, up to 50MB per file.</p>
-                </div>
-                <input type="file" id="fileInput" class="hidden" accept="application/pdf">
-                <button class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
-                    <span class="material-symbols-outlined text-xl">add_circle</span>
-                    <span>Select File</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- SSE Stage Tracking UI (Hidden Initially) -->
-        <div id="uploadProgressUI" class="hidden bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-xl space-y-8 animate-in fade-in zoom-in duration-300">
-            <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                        <span class="material-symbols-outlined">description</span>
-                    </div>
-                    <div>
-                        <h3 id="uiFileName" class="font-bold text-slate-900 dark:text-white truncate max-w-[200px]">document.pdf</h3>
-                        <p id="uiStatusLabel" class="text-xs text-slate-500 italic">Initializing pipeline...</p>
-                    </div>
-                </div>
-                <div id="percentageDisplay" class="text-2xl font-black text-primary">0%</div>
-            </div>
-
-            <!-- Vertical Stages -->
-            <div class="space-y-6 relative ml-2">
-                <!-- Vertical Line -->
-                <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100 dark:bg-slate-800"></div>
-
-                <div id="stage-parsing" class="stage-item stage-pending flex items-center gap-4 relative z-10">
-                    <div class="stage-icon w-6 h-6 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-xs hidden">check</span>
-                        <div class="dot w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700"></div>
-                    </div>
-                    <span class="text-sm font-medium">Text Extraction</span>
-                </div>
-
-                <div id="stage-cleaning" class="stage-item stage-pending flex items-center gap-4 relative z-10">
-                    <div class="stage-icon w-6 h-6 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-xs hidden">check</span>
-                        <div class="dot w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700"></div>
-                    </div>
-                    <span class="text-sm font-medium">Content Sanitization</span>
-                </div>
-
-                <div id="stage-sections" class="stage-item stage-pending flex items-center gap-4 relative z-10">
-                    <div class="stage-icon w-6 h-6 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-xs hidden">check</span>
-                        <div class="dot w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700"></div>
-                    </div>
-                    <span class="text-sm font-medium">Section Mapping</span>
-                </div>
-
-                <div id="stage-chunking" class="stage-item stage-pending flex items-center gap-4 relative z-10">
-                    <div class="stage-icon w-6 h-6 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-xs hidden">check</span>
-                        <div class="dot w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700"></div>
-                    </div>
-                    <span class="text-sm font-medium">Vector Chunking</span>
-                </div>
-
-                <div id="stage-indexing" class="stage-item stage-pending flex items-center gap-4 relative z-10">
-                    <div class="stage-icon w-6 h-6 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-xs hidden">check</span>
-                        <div class="dot w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700"></div>
-                    </div>
-                    <span class="text-sm font-medium">F.A.I.S.S. Indexing</span>
-                </div>
-
-                <div id="stage-summarizing" class="stage-item stage-pending flex items-center gap-4 relative z-10">
-                    <div class="stage-icon w-6 h-6 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-xs hidden">check</span>
-                        <div class="dot w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700"></div>
-                    </div>
-                    <span class="text-sm font-medium">Deep AI Summarization</span>
-                </div>
-            </div>
-
-            <!-- Progress Bar -->
-            <div class="space-y-2">
-                <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
-                    <div id="mainProgressBar" class="bg-primary h-full rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
-                </div>
-                <div class="flex justify-between items-center px-1">
-                    <span id="detailStatus" class="text-[10px] uppercase font-bold tracking-widest text-slate-400">System Ready</span>
-                    <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Stage Analytics</span>
-                </div>
-            </div>
-
-            <!-- Error Display -->
-            <div id="uiErrorContainer" class="hidden p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
-                <span class="material-symbols-outlined text-red-500">error</span>
-                <div class="flex-grow">
-                    <p class="text-sm font-bold text-red-700 dark:text-red-400">Processing Failed</p>
-                    <p id="uiErrorMessage" class="text-xs text-red-600 dark:text-red-500">Something went wrong.</p>
-                </div>
-                <button onclick="window.location.reload()" class="text-xs font-bold text-red-700 underline">Try Again</button>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-            <div class="flex items-start gap-3">
-                <span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">security</span>
-                <div>
-                    <h4 class="font-bold text-sm">Secure Processing</h4>
-                    <p class="text-xs text-slate-500">Encrypted transmission & temporary storage.</p>
-                </div>
-            </div>
-            <div class="flex items-start gap-3">
-                <span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">speed</span>
-                <div>
-                    <h4 class="font-bold text-sm">Instant Analysis</h4>
-                    <p class="text-xs text-slate-500">Summaries generated in under 30 seconds.</p>
-                </div>
-            </div>
-            <div class="flex items-start gap-3">
-                <span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">history_edu</span>
-                <div>
-                    <h4 class="font-bold text-sm">Academic Focus</h4>
-                    <p class="text-xs text-slate-500">Optimized for citations and methodology.</p>
-                </div>
-            </div>
-        </div>
+    <!-- Hero Heading -->
+    <div class="text-center space-y-3">
+      <span class="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider rounded-full">Process Initialized</span>
+      <h2 class="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">Step 1: Upload Research Paper</h2>
+      <p class="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
+        Select a PDF document from your computer to generate an instant AI-powered summary and interactive Q&amp;A session.
+      </p>
     </div>
+
+    <!-- ── Dropzone ───────────────────────────────────────────────────────── -->
+    <div id="dropzoneWrapper" class="relative group">
+      <div class="absolute -inset-1 bg-gradient-to-r from-primary to-blue-400 rounded-xl blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
+      <div id="dropzone"
+           class="relative flex flex-col items-center justify-center gap-8 p-16 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-primary dark:hover:border-primary transition-all cursor-pointer group/upload"
+           onclick="document.getElementById('fileInput').click()">
+        <div class="w-20 h-20 rounded-full bg-background-light dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover/upload:text-primary group-hover/upload:scale-110 transition-all duration-300">
+          <span class="material-symbols-outlined text-4xl">upload_file</span>
+        </div>
+        <div class="text-center space-y-2">
+          <p class="text-xl font-bold text-slate-900 dark:text-white">Click to select or drag and drop</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">PDF documents only, up to 50MB per file.</p>
+        </div>
+        <input type="file" id="fileInput" class="hidden" accept="application/pdf">
+        <button class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+          <span class="material-symbols-outlined text-xl">add_circle</span>
+          <span>Select File</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── SSE Stage Tracker ────────────────────────────────────────────── -->
+    <div id="progressContainer" class="hidden flex-col gap-5 p-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-primary flex-shrink-0">picture_as_pdf</span>
+          <span id="fileNameDisplay" class="font-semibold text-slate-900 dark:text-white truncate text-sm"></span>
+        </div>
+        <span id="progressPercent" class="text-sm font-bold text-primary flex-shrink-0 ml-3">0%</span>
+      </div>
+
+      <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+        <div id="progressBar" class="bg-primary h-2 rounded-full" style="width: 0%"></div>
+      </div>
+
+      <p id="currentLabel" class="text-sm font-semibold text-primary"></p>
+
+      <ul id="stageList" class="flex flex-col gap-1 mt-1">
+        <!-- Populated by JS -->
+      </ul>
+
+      <div id="errorBlock" class="hidden flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mt-2">
+        <span class="material-symbols-outlined text-red-500 flex-shrink-0 mt-0.5">error</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-red-700 dark:text-red-400" id="errorTitle">Processing failed</p>
+          <p class="text-xs text-red-600 dark:text-red-500 mt-0.5" id="errorMessage"></p>
+        </div>
+        <button id="tryAgainBtn"
+                onclick="resetToDropzone()"
+                class="flex-shrink-0 text-xs font-bold bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+          Try Again
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Info Row -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">security</span>
+        <div>
+          <h4 class="font-bold text-sm">Secure Processing</h4>
+          <p class="text-xs text-slate-500">Encrypted transmission &amp; temporary storage.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">speed</span>
+        <div>
+          <h4 class="font-bold text-sm">Instant Analysis</h4>
+          <p class="text-xs text-slate-500">Summaries generated in under 30 seconds.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">history_edu</span>
+        <div>
+          <h4 class="font-bold text-sm">Academic Focus</h4>
+          <p class="text-xs text-slate-500">Optimized for citations and methodology.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
 </main>
 
 <footer class="mt-auto py-8 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-    <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div class="flex items-center gap-4 text-sm text-slate-500">
-            <a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-            <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
-            <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
-            <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
-            <a class="hover:text-primary transition-colors" href="#">Contact Support</a>
-        </div>
-        <div class="text-sm text-slate-400">
-           Built for Researchers.
-        </div>
+  <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-4 text-sm text-slate-500">
+      <a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+      <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+      <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+      <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+      <a class="hover:text-primary transition-colors" href="#">Contact Support</a>
     </div>
+    <div class="text-sm text-slate-400">Built for Researchers.</div>
+  </div>
 </footer>
 
 <script>
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const dropzoneContainer = document.getElementById('dropzoneContainer');
-    const progressUI = document.getElementById('uploadProgressUI');
-    const mainProgressBar = document.getElementById('mainProgressBar');
-    const percentageDisplay = document.getElementById('percentageDisplay');
-    const uiFileName = document.getElementById('uiFileName');
-    const uiStatusLabel = document.getElementById('uiStatusLabel');
-    const detailStatus = document.getElementById('detailStatus');
-    const uiErrorContainer = document.getElementById('uiErrorContainer');
-    const uiErrorMessage = document.getElementById('uiErrorMessage');
+  const STAGES = [
+    { key: 'parsing',     label: 'PDF parsed'               },
+    { key: 'cleaning',    label: 'Text cleaned'             },
+    { key: 'sections',    label: 'Sections extracted'       },
+    { key: 'chunking',    label: 'Content chunked'          },
+    { key: 'indexing',    label: 'Vector index built'       },
+    { key: 'summarizing', label: 'AI summaries generated'   },
+  ];
 
-    const stages = ['parsing', 'cleaning', 'sections', 'chunking', 'indexing', 'summarizing'];
+  const dropzoneWrapper   = document.getElementById('dropzoneWrapper');
+  const dropzone          = document.getElementById('dropzone');
+  const fileInput         = document.getElementById('fileInput');
+  const progressContainer = document.getElementById('progressContainer');
+  const fileNameDisplay   = document.getElementById('fileNameDisplay');
+  const progressBar       = document.getElementById('progressBar');
+  const progressPercent   = document.getElementById('progressPercent');
+  const currentLabel      = document.getElementById('currentLabel');
+  const stageList         = document.getElementById('stageList');
+  const errorBlock        = document.getElementById('errorBlock');
+  const errorTitle        = document.getElementById('errorTitle');
+  const errorMessage      = document.getElementById('errorMessage');
 
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropzone.addEventListener(eventName, preventDefaults, false);
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); }, false)
+  );
+  dropzone.addEventListener('dragover',  () => dropzone.classList.add('border-primary'));
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-primary'));
+  dropzone.addEventListener('drop', e => {
+    dropzone.classList.remove('border-primary');
+    if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files.length > 0) handleFiles(e.target.files);
+  });
+
+  function handleFiles(files) {
+    const file = files[0];
+    if (file.type !== 'application/pdf') { alert('Please upload a PDF file.'); return; }
+    startUpload(file);
+  }
+
+  function buildStageList() {
+    stageList.innerHTML = '';
+    STAGES.forEach(s => {
+      const li = document.createElement('li');
+      li.id = `stage-row-${s.key}`;
+      li.className = 'stage-row flex items-center gap-3 py-1.5 px-2 rounded-lg';
+      li.innerHTML = `
+        <span id="stage-icon-${s.key}" class="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+          <span class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 block"></span>
+        </span>
+        <span id="stage-label-${s.key}" class="text-sm text-slate-400 dark:text-slate-500">${s.label}</span>
+      `;
+      stageList.appendChild(li);
     });
+  }
 
-    function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
-    dropzone.addEventListener('dragover', () => dropzone.classList.add('border-primary'));
-    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-primary'));
-    dropzone.addEventListener('drop', handleDrop, false);
-    fileInput.addEventListener('change', handleFileSelect, false);
+  function setStageActive(key) {
+    const iconEl  = document.getElementById(`stage-icon-${key}`);
+    const labelEl = document.getElementById(`stage-label-${key}`);
+    if (!iconEl || !labelEl) return;
+    iconEl.innerHTML  = `<span class="pulse-dot w-2.5 h-2.5 rounded-full bg-primary block"></span>`;
+    labelEl.className = 'text-sm font-semibold text-primary';
+  }
 
-    function handleDrop(e) {
-      dropzone.classList.remove('border-primary');
-      const dt = e.dataTransfer;
-      const files = dt.files;
-      if (files.length > 0) handleFiles(files);
+  function setStageDone(key) {
+    const iconEl  = document.getElementById(`stage-icon-${key}`);
+    const labelEl = document.getElementById(`stage-label-${key}`);
+    if (!iconEl || !labelEl) return;
+    iconEl.innerHTML  = `<span class="material-symbols-outlined text-green-500" style="font-size:18px;font-variation-settings:'FILL' 1;">check_circle</span>`;
+    labelEl.className = 'text-sm font-medium text-green-600 dark:text-green-400';
+  }
+
+  function setStageError(key) {
+    const iconEl  = document.getElementById(`stage-icon-${key}`);
+    const labelEl = document.getElementById(`stage-label-${key}`);
+    if (!iconEl || !labelEl) return;
+    iconEl.innerHTML  = `<span class="material-symbols-outlined text-red-500" style="font-size:18px;font-variation-settings:'FILL' 1;">cancel</span>`;
+    labelEl.className = 'text-sm font-medium text-red-600 dark:text-red-400';
+  }
+
+  function resetToDropzone() {
+    errorBlock.classList.add('hidden');
+    progressContainer.classList.add('hidden');
+    progressContainer.classList.remove('flex');
+    dropzoneWrapper.classList.remove('hidden');
+    fileInput.value = '';
+    progressBar.style.width = '0%';
+    progressPercent.textContent = '0%';
+    currentLabel.textContent = '';
+  }
+
+  async function startUpload(file) {
+    dropzoneWrapper.classList.add('hidden');
+    progressContainer.classList.remove('hidden');
+    progressContainer.classList.add('flex');
+    errorBlock.classList.add('hidden');
+
+    fileNameDisplay.textContent = file.name;
+    buildStageList();
+
+    const formData = new FormData();
+    formData.append('paper', file);
+
+    let response;
+    try {
+      response = await fetch('/api/upload-stream', {
+        method: 'POST',
+        body: formData
+      });
+    } catch (networkErr) {
+      showError('Network error', networkErr.message || 'Could not reach the server.');
+      return;
     }
 
-    function handleFileSelect(e) {
-      const files = e.target.files;
-      if (files.length > 0) handleFiles(files);
-    }
-
-    function handleFiles(files) {
-      const file = files[0];
-      if (file.type !== 'application/pdf') {
-        alert('Please upload a PDF file.');
-        return;
-      }
-      uploadFileStream(file);
-    }
-
-    function updateStageUI(currentStage) {
-        let foundCurrent = false;
-        stages.forEach(s => {
-            const el = document.getElementById(`stage-${s}`);
-            const icon = el.querySelector('.stage-icon');
-            const check = icon.querySelector('.material-symbols-outlined');
-            const dot = icon.querySelector('.dot');
-
-            if (s === currentStage) {
-                el.className = 'stage-item stage-active flex items-center gap-4 relative z-10';
-                dot.className = 'pulsing-dot';
-                check.classList.add('hidden');
-                foundCurrent = true;
-            } else if (!foundCurrent) {
-                // Completed stages
-                el.className = 'stage-item stage-done flex items-center gap-4 relative z-10';
-                icon.className = 'stage-icon w-6 h-6 rounded-full bg-emerald-500 border-2 border-emerald-500 flex items-center justify-center text-white';
-                check.classList.remove('hidden');
-                dot.classList.add('hidden');
-            } else {
-                // Pending stages
-                el.className = 'stage-item stage-pending flex items-center gap-4 relative z-10';
-                dot.className = 'dot w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700';
-            }
-        });
-    }
-
-    async function uploadFileStream(file) {
-        dropzoneContainer.classList.add('hidden');
-        progressUI.classList.remove('hidden');
-        uiFileName.textContent = file.name;
-
-        const formData = new FormData();
-        formData.append('paper', file);
-
+    if (!response.ok) {
+        let msg = `Server returned ${response.status}`;
         try {
-            const response = await fetch('/api/upload-stream', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) throw new Error('Network response was not ok');
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.substring(6));
-                            console.log("SSE Event:", data);
-
-                            if (data.stage === 'error') {
-                                throw new Error(data.label);
-                            }
-
-                            if (data.stage === 'done') {
-                                mainProgressBar.style.width = '100%';
-                                percentageDisplay.textContent = '100%';
-                                uiStatusLabel.textContent = 'Finalizing...';
-                                setTimeout(() => {
-                                    window.location.href = `summary.html?paperId=${data.paperId}`;
-                                }, 1000);
-                                return;
-                            }
-
-                            // Update UI
-                            updateStageUI(data.stage);
-                            mainProgressBar.style.width = `${data.percent}%`;
-                            percentageDisplay.textContent = `${data.percent}%`;
-                            uiStatusLabel.textContent = data.label;
-                            detailStatus.textContent = `Current Stage: ${data.stage.toUpperCase()}`;
-                        } catch (e) {
-                            console.error("Parse error", e);
-                        }
-                    }
-                }
-            }
-        } catch (err) {
-            console.error("Upload error", err);
-            uiErrorContainer.classList.remove('hidden');
-            uiErrorMessage.textContent = err.message;
-            uiStatusLabel.textContent = 'Pipeline interrupted.';
-        }
+            const data = await response.json();
+            msg = data.message || msg;
+        } catch(e) {}
+        showError('Upload failed', msg);
+        return;
     }
+
+    if (!response.body) {
+      showError('Upload failed', 'No stream received from server');
+      return;
+    }
+
+    const completedKeys = new Set();
+    const reader  = response.body.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop();
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data:')) continue;
+          try {
+            const payload = JSON.parse(line.slice(5).trim());
+            handleSSEEvent(payload, completedKeys);
+          } catch(e) {}
+        }
+      }
+    } catch (streamErr) {
+      showError('Stream error', streamErr.message || 'Lost connection to server.');
+    }
+  }
+
+  function handleSSEEvent(payload, completedKeys) {
+    const { stage, label, percent, paperId, error, message } = payload;
+
+    if (error || stage === 'error') {
+      const activeStage = STAGES.find(s => !completedKeys.has(s.key));
+      if (activeStage) setStageError(activeStage.key);
+      showError(label || 'Processing failed', message || '');
+      return;
+    }
+
+    if (typeof percent === 'number') {
+      progressBar.style.width = percent + '%';
+      progressPercent.textContent = percent + '%';
+    }
+
+    if (stage === 'done') {
+      STAGES.forEach(s => { if (!completedKeys.has(s.key)) setStageDone(s.key); });
+      currentLabel.textContent = 'Complete!';
+      currentLabel.classList.remove('text-primary');
+      currentLabel.classList.add('text-green-600', 'dark:text-green-400');
+      setTimeout(() => {
+        window.location.href = `summary.html?paperId=${encodeURIComponent(paperId)}`;
+      }, 1200);
+      return;
+    }
+
+    const stageIdx = STAGES.findIndex(s => s.key === stage);
+    if (stageIdx === -1) return;
+
+    for (let i = 0; i < stageIdx; i++) {
+      const key = STAGES[i].key;
+      if (!completedKeys.has(key)) {
+        setStageDone(key);
+        completedKeys.add(key);
+      }
+    }
+
+    setStageActive(stage);
+    currentLabel.textContent = label || '';
+  }
+
+  function showError(title, msg) {
+    errorTitle.textContent   = title || 'Processing failed';
+    errorMessage.textContent = msg   || '';
+    errorBlock.classList.remove('hidden');
+  }
 </script>
 </body>
 </html>
