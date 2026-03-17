@@ -121,8 +121,8 @@ async function generateStructuredSummary(contextBlocks) {
     console.log("✅ Summary generated successfully.");
     return summary;
   } catch (error) {
-    console.error("❌ OpenAI Summary Error:", error);
-    return "Failed to generate summary. Please check your OpenAI API key or try again.";
+    console.error("❌ AI Summary Error:", error);
+    return "Failed to generate summary. Please check your AI API key or try again.";
   }
 }
 
@@ -147,6 +147,7 @@ async function rewriteQuery(query, chatHistory = []) {
     });
     return response.choices[0].message.content.trim();
   } catch (error) {
+    console.error("❌ Query Rewrite Error:", error);
     return query;
   }
 }
