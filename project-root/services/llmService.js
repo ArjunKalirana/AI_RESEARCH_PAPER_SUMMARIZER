@@ -1,9 +1,11 @@
-const axios = require("axios");
+const { OpenAI } = require("openai");
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
 
 // ============================================================
-// GUARDRAIL 1: Off-topic detection (runs BEFORE LLM)
-// Requires at least 2 meaningful keyword matches in retrieved context.
-// A single-word overlap was too permissive — borderline queries slipped through.
+// GUARDRAIL 1: Relaxed Grounding
 // ============================================================
 function isQueryGrounded(query, contextBlocks) {
   if (!contextBlocks || contextBlocks.length === 0) return false;
@@ -12,184 +14,64 @@ function isQueryGrounded(query, contextBlocks) {
     .map((c) => c.chunkText.toLowerCase())
     .join(" ");
 
-  const stopWords = new Set([
-    "what", "how", "why", "the", "is", "are", "a", "an",
-    "of", "in", "to", "does", "did", "was", "were", "it",
-    "this", "that", "tell", "me", "about", "paper", "study",
-    "research", "explain", "describe", "summarize", "define",
-    "which", "with", "for", "on", "at", "who", "their"
-  ]);
+  // Simple check: does at least one non-trivial word from the query appear in the context?
+  const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  if (queryWords.length === 0) return true; // Let OpenAI handle very short queries
 
-  // Extract meaningful query keywords (length > 3, not a stopword)
-  const queryWords = query
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, "")
-    .split(/\s+/)
-    .filter((w) => w.length > 3 && !stopWords.has(w));
-
-  // Very generic query — pass through, LLM will self-reject
-  if (queryWords.length === 0) return true;
-
-  // Build a word-level set from context for exact matching
-  const contextWordSet = new Set(combinedContext.split(/\s+/));
-
-  // Require at least 2 keyword matches for the query to be grounded
-  const matches = queryWords.filter((w) => contextWordSet.has(w));
-  return matches.length >= 2;
+  const match = queryWords.some(word => combinedContext.includes(word));
+  return match;
 }
 
 // ============================================================
-// GUARDRAIL 2: Post-processing (runs AFTER LLM)
-// tinyllama ignores format rules, so we extract a clean answer
-// from whatever it generates, or fall back to "Not found."
+// REFINED Post-processing
 // ============================================================
-function extractAnswerFromResponse(rawText, contextBlocks) {
-  // Remove echoed prompt sections if tinyllama parroted them back
-  let cleaned = rawText
-    .replace(/###[\s\S]*?Answer.*?:/i, "")
-    .replace(/Context:[\s\S]*?---/i, "")
-    .replace(/Based on (the |this )?(context|provided context|above context|paper context)[^.!?]*[.!?]/gi, "")
-    .replace(/According to (the |this )?(context|provided context)[^.!?]*[.!?]/gi, "")
-    .trim();
-
-  // Grab first clean sentence(s) — tinyllama usually answers first before going off-track
-  const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
-  let answer = sentences.slice(0, 3).join(" ").trim(); // max 3 sentences
-
-  // ============================================================
-  // GUARDRAIL 3: Hallucination detector
-  // Checks if the answer words actually appear in the context.
-  // If less than 35% match → discard as hallucination.
-  // ============================================================
-  if (answer && answer.length > 10) {
-    const combinedContext = contextBlocks.map((c) => c.chunkText.toLowerCase()).join(" ");
-
-    const answerWords = answer
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, "")
-      .split(" ")
-      .filter((w) => w.length > 4);
-
-    const groundedCount = answerWords.filter((w) => combinedContext.includes(w)).length;
-    const ratio = answerWords.length > 0 ? groundedCount / answerWords.length : 0;
-
-    if (ratio < 0.35) {
-      return "I am not confident enough to answer this question based on the uploaded paper.";
-    }
-  }
-
-  // Deduplicate repeated sentences (tinyllama repeats itself)
-  if (answer) {
-    const allSentences = answer.match(/[^.!?]+[.!?]+/g) || [answer];
-    const seen = new Set();
-    answer = allSentences
-      .filter((s) => {
-        const key = s.trim().toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .join(" ")
-      .trim();
-  }
-
-  // Strip vague TinyLlama filler openers
-  if (answer) {
-    const vagueOpeners = [
-      /^(the (paper|study|system|authors?|research) (shows?|states?|describes?|presents?|proposes?|finds?|suggests?))[,.]?\s*/i,
-      /^(it (is|was|can be) (noted|seen|observed|shown) that)\s*/i,
-      /^(in (this|the) (paper|study|research|work))[,.]?\s*/i,
-      /^(the (proposed|presented|described) (system|approach|method|pipeline))\s*/i,
-      /^(overall[,.]?\s*)/i,
-      /^(to summarize[,.]?\s*)/i,
-    ];
-    vagueOpeners.forEach((pattern) => {
-      answer = answer.replace(pattern, "");
-    });
-    answer = answer.charAt(0).toUpperCase() + answer.slice(1);
-    answer = answer.trim();
-  }
-
-  return answer || "I am not confident enough to answer this question based on the uploaded paper.";
-}
-
-// (Evidence extraction removed — no longer needed)
-
-// ============================================================
-// GUARDRAIL 4: Streaming repetition loop killer
-// ============================================================
-function createRepetitionDetector(threshold = 5) {
-  const recentTokens = [];
-  return function check(token) {
-    recentTokens.push(token.trim());
-    if (recentTokens.length > threshold) recentTokens.shift();
-    if (
-      recentTokens.length === threshold &&
-      recentTokens.every((t) => t === recentTokens[0] && t.length > 0)
-    ) {
-      return true;
-    }
-    return false;
-  };
+function extractAnswerFromResponse(rawText) {
+  return rawText.trim() || "I am not confident enough to answer this question based on the uploaded paper.";
 }
 
 // ============================================================
-// MAIN FUNCTION
-// ============================================================
-const { OpenAI } = require("openai");
-
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
-
-// ============================================================
-// MAIN FUNCTION
+// MAIN FUNCTIONS
 // ============================================================
 async function generateSummary(query, contextBlocks, chatHistory = [], onChunk = null) {
+  console.log(`🧠 AI processing question: "${query}" with ${contextBlocks.length} context blocks.`);
 
-  // --- GUARDRAIL 1: Reject off-topic before calling LLM ---
   if (!isQueryGrounded(query, contextBlocks)) {
-    const msg = "I am not confident enough to answer this question based on the uploaded paper.";
+    console.log("⚠️ Query not grounded in context. Rejecting.");
+    const msg = "I'm sorry, but I couldn't find relevant information in the paper to answer that specific question.";
     if (onChunk) onChunk(msg);
     return msg;
   }
 
-  // Chunks processing
-  const topChunks = contextBlocks.slice(0, 6);
-  const contextText = topChunks
-    .map((c, i) => `[${i + 1}] ${c.chunkText.slice(0, 800).trim()}`)
+  const contextText = contextBlocks
+    .map((c, i) => `[Block ${i + 1}] (Section: ${c.section || 'Unknown'})\n${c.chunkText}`)
     .join("\n---\n");
 
   const messages = [
     {
       role: "system",
-      content: `You are a research paper Q&A assistant. Your only job is to answer questions using the context chunks provided.
-      
-Strict rules:
-- Answer in 2-4 sentences maximum.
-- Use specific details: numbers, names, percentages, component names.
-- Never use phrases like "based on", "according to", "the context says".
-- Never repeat the same sentence twice.
-- If the answer is not in the context, output exactly: "This information is not covered in the paper."`
+      content: `You are a Research Assistant. Use the provided context to answer the user's question accurately.
+RULES:
+1. Be professional, academic, and detailed.
+2. If the answer is not in the context, say so politely.
+3. Don't mention "the provided context" or "chunks". Just answer.
+4. Keep it concise but ensure all key facts are included.`
     }
   ];
 
-  // Add History
-  chatHistory.slice(-4).forEach(m => {
-      messages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content });
+  chatHistory.slice(-6).forEach(m => {
+      messages.push({ role: m.role || 'user', content: m.content });
   });
 
-  // Add current query with context
   messages.push({
     role: "user",
-    content: `CONTEXT:\n${contextText}\n\nQUESTION: ${query}`
+    content: `CONTEXT FROM PAPER:\n${contextText}\n\nUSER QUESTION: ${query}`
   });
 
   try {
     const stream = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", // Or gpt-4o-mini
+      model: "gpt-3.5-turbo",
       messages: messages,
-      temperature: 0.1,
+      temperature: 0.2,
       stream: true,
     });
 
@@ -201,18 +83,17 @@ Strict rules:
         if (onChunk) onChunk(content);
       }
     }
-
-    return extractAnswerFromResponse(fullText, contextBlocks);
-
+    return extractAnswerFromResponse(fullText);
   } catch (error) {
-    console.error("OpenAI Error:", error.message);
-    throw new Error("Failed to reach OpenAI. Check your API key.");
+    console.error("❌ OpenAI API Error:", error);
+    throw error;
   }
 }
 
 async function generateStructuredSummary(contextBlocks) {
+  console.log("🧠 Generating structured summary...");
   const contextText = contextBlocks
-    .map((c, i) => `Source ${i + 1}\nTitle: ${c.title}\nSection: ${c.section}\nContent: ${c.chunkText}`)
+    .map((c, i) => `Source Chunk ${i + 1} (Section: ${c.section})\n${c.chunkText}`)
     .join("\n---\n");
 
   try {
@@ -221,30 +102,28 @@ async function generateStructuredSummary(contextBlocks) {
       messages: [
         {
           role: "system",
-          content: "You are an expert academic AI. Read the provided source paper chunks and generate a concise, structured academic summary. DO NOT use conversational filler. FOCUS entirely on facts, numbers, methodology, and results."
+          content: "You are an expert academic summarizer. Generate a structured, detailed summary based on the provided paper excerpts. Use clear headings and bullet points for readability."
         },
         {
           role: "user",
-          content: `Generate a structured summary in Markdown format with these headers: ### Problem, ### Proposed Approach, ### Methodology, ### Key Results, ### Contribution.\n\nSOURCE PAPER CHUNKS:\n${contextText}`
+          content: `Generate a summary with these sections: Problem, Approach, Methodology, and Key Results.\n\nCONTEXT:\n${contextText}`
         }
       ],
-      temperature: 0.2,
+      temperature: 0.3,
     });
 
-    return response.choices[0].message.content.trim();
-
+    const summary = response.choices[0].message.content.trim();
+    console.log("✅ Summary generated successfully.");
+    return summary;
   } catch (error) {
-    console.error("OpenAI Error generating structured summary:", error.message);
-    return "Error generating structured summary.";
+    console.error("❌ OpenAI Summary Error:", error);
+    return "Failed to generate summary. Please check your OpenAI API key or try again.";
   }
 }
 
 async function rewriteQuery(query, chatHistory = []) {
-  if (!chatHistory || chatHistory.length === 0) {
-    return query;
-  }
-
-  const formattedHistory = chatHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n");
+  if (chatHistory.length === 0) return query;
+  const historyText = chatHistory.slice(-3).map(m => `${m.role}: ${m.content}`).join("\n");
 
   try {
     const response = await openai.chat.completions.create({
@@ -252,19 +131,17 @@ async function rewriteQuery(query, chatHistory = []) {
       messages: [
         {
           role: "system",
-          content: "You are an expert search query generator. Rewrite the User's Follow-up Question into a single standalone search query. Replace pronouns with entities from history. Output ONLY the rewritten string."
+          content: "Rewrite the user's latest question to be a standalone search query, incorporating context from the recent chat history if necessary. Output ONLY the rewritten query."
         },
         {
           role: "user",
-          content: `HISTORY:\n${formattedHistory}\n\nUSER QUESTION: ${query}\n\nREWRITTEN QUERY:`
+          content: `HISTORY:\n${historyText}\n\nLATEST QUESTION: ${query}`
         }
       ],
-      temperature: 0.1,
+      temperature: 0,
     });
-
     return response.choices[0].message.content.trim();
   } catch (error) {
-    console.error("OpenAI Error rewriting query:", error.message);
     return query;
   }
 }
