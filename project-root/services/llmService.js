@@ -181,9 +181,54 @@ async function summarizePaperSection(sectionName, sectionText) {
   } catch (error) {
     console.error(`❌ Groq Section Summary Error (${sectionName}):`, error.message);
     // Fallback: If AI fails, return a "Smart Snippet" instead of an error message
-    const snippet = sectionText.slice(0, 400).trim();
     return snippet + (sectionText.length > 400 ? "..." : "");
   }
 }
 
-module.exports = { generateSummary, generateStructuredSummary, rewriteQuery, summarizePaperSection };
+async function generateFollowUpSuggestions(question, answer, paperTitle) {
+  console.log("🧠 [Groq] Generating follow-up suggestions...");
+  try {
+    const response = await groq.chat.completions.create({
+      model: SUMMARY_MODEL, // Fast 8B model
+      messages: [
+        {
+          role: "system",
+          content: `You are a research assistant. Given a question and answer about a research paper, generate exactly 3 short follow-up questions a researcher would naturally ask next. Return ONLY a valid JSON array of 3 strings. 
+          Example: ["What dataset was used?", "What are the limitations?", "How does this compare to prior work?"]
+          No explanation. No markdown. Just the JSON array.`
+        },
+        {
+          role: "user",
+          content: `Question: ${question}\nAnswer: ${answer}\nPaper topic: ${paperTitle}`
+        }
+      ],
+      max_tokens: 150,
+      temperature: 0.4,
+      response_format: { type: "json_object" } // Optional, but let's stick to the prompt's request for safety
+    });
+
+    const content = response.choices[0].message.content.trim();
+    // Groq might return JSON inside markdown or plain. Let's try to parse.
+    try {
+      // Find possible array start/end if it returned noise
+      const start = content.indexOf('[');
+      const end = content.lastIndexOf(']') + 1;
+      if (start !== -1 && end !== 0) {
+        return JSON.parse(content.slice(start, end));
+      }
+      return JSON.parse(content);
+    } catch (e) {
+      console.error("❌ Suggestion Parse Error:", e, content);
+      throw e;
+    }
+  } catch (error) {
+    console.error("❌ Groq Suggestion Error:", error.message);
+    return [
+      "What methodology did the authors use?",
+      "What are the main limitations of this study?",
+      "How do these findings compare to related work?"
+    ];
+  }
+}
+
+module.exports = { generateSummary, generateStructuredSummary, rewriteQuery, summarizePaperSection, generateFollowUpSuggestions };
