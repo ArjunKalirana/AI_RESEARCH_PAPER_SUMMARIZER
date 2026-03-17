@@ -1,5 +1,6 @@
 const fs = require('fs');
-const path = require('path');
+const path = require('pStId: 1246
+ath');
 const { searchQuery, computeSimilarity } = require('../services/faissService');
 const { runQuery } = require('../services/neo4j.service');
 const { generateSummary, rewriteQuery, generateFollowUpSuggestions } = require('../services/llmService');
@@ -16,7 +17,6 @@ async function evaluateRetrieval(query, hybridContext) {
   }
   
   let totalSim = 0;
-  // Use Promise.all to avoid sequential AI calls
   const simResults = await Promise.all(
     hybridContext.map(c => computeSimilarity(query, c.chunkText))
   );
@@ -31,9 +31,6 @@ async function evaluateRetrieval(query, hybridContext) {
   };
 }
 
-/* ================================
-   Faithfulness Evaluation
-================================ */
 async function evaluateFaithfulness(summary, hybridContext) {
   const summaryText = typeof summary === 'string' ? summary : (summary?.answer || '');
   if (hybridContext.length === 0 || !summaryText ||
@@ -59,14 +56,18 @@ function getConfidenceLabel(score) {
 async function askQuestion(req, res) {
   let isStreamClosed = false;
   
-  // Safeguard: Detect client disconnect
   req.on('close', () => {
     isStreamClosed = true;
   });
 
   const sendSSE = (data) => {
     if (isStreamClosed || res.writableEnded) return;
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    try {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      // res.flush() // uncomment if using compression middleware
+    } catch (e) {
+      console.error("[SSE] Write failed:", e.message);
+    }
   };
 
   try {
@@ -76,22 +77,19 @@ async function askQuestion(req, res) {
       return res.status(400).json({ error: 'paperId and question are required' });
     }
 
+    // ── Headers ──────────────────────────────────────────────────────────────
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // 🚀 CRITICAL for Nginx/AWS
     res.flushHeaders();
 
     const chatHistory = await getChatHistory(paperId);
-    
-    // 1️⃣ Resolve context & Retrieve
-    const [refinedQuery] = await Promise.all([
-        rewriteQuery(question, chatHistory)
-    ]);
+    const refinedQuery = await rewriteQuery(question, chatHistory);
 
+    // ── Retrieval ────────────────────────────────────────────────────────────
     const searchResult = await searchQuery(refinedQuery, paperId, 6);
-    const allIndices = searchResult.indices || []; 
-    const allDistances = searchResult.distances || [];
-
+    
     const hybridContext = [];
     const sourceTracker = new Set();
     const sources = [];
@@ -101,44 +99,48 @@ async function askQuestion(req, res) {
     
     if (fs.existsSync(paperPath)) {
         const paper = JSON.parse(fs.readFileSync(paperPath, 'utf-8'));
-        
-        const graphRes = await runQuery(`
-          MATCH (p:ResearchPaper {paperId: $paperId})
-          OPTIONAL MATCH (p)-[:WRITTEN_BY]->(a:Author)
-          RETURN p.title AS title, p.year AS year, collect(a.authorName) AS authors
-        `, { paperId });
-        
-        const graphData = graphRes.records[0]?.toObject();
         const sortedChunks = [...paper.chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
 
-        const flatIndices = Array.isArray(allIndices[0]) ? allIndices[0] : allIndices;
-        const flatDistances = Array.isArray(allDistances[0]) ? allDistances[0] : allDistances;
-
-        for (let i = 0; i < flatIndices.length; i++) {
-            const index = flatIndices[i];
-            const similarity = flatDistances[i];
-            
-            let chunk = sortedChunks[index];
-            if (searchResult.results && searchResult.results[i]) {
-                const rs = searchResult.results[i];
-                chunk = { chunkText: rs.text, sectionName: rs.sectionName || "Section" };
+        // ✅ HANDLE BOTH: Basic FAISS format OR Reranker result format
+        if (searchResult.results && searchResult.results.length > 0) {
+            // RERANKER PATH
+            for (const res of searchResult.results) {
+                hybridContext.push({
+                    paperId,
+                    title: paper.title || "Paper",
+                    chunkText: res.text,
+                    section: res.sectionName || "Context"
+                });
+                const sName = res.sectionName || "Document";
+                if (!sourceTracker.has(sName)) {
+                    sourceTracker.add(sName);
+                    sources.push(sName);
+                }
             }
+        } else {
+            // BASIC SEARCH PATH
+            const allIndices = Array.isArray(searchResult.indices) ? (Array.isArray(searchResult.indices[0]) ? searchResult.indices[0] : searchResult.indices) : [];
+            const allDistances = Array.isArray(searchResult.distances) ? (Array.isArray(searchResult.distances[0]) ? searchResult.distances[0] : searchResult.distances) : [];
 
-            if (!chunk || similarity < 0.20) continue;
+            for (let i = 0; i < allIndices.length; i++) {
+                const idx = allIndices[i];
+                const sim = allDistances[i];
+                const chunk = sortedChunks[idx];
+                if (!chunk || sim < 0.20) continue;
 
-            hybridContext.push({
-              paperId: paperId,
-              title: graphData?.title || paper.title || "Unknown",
-              chunkText: chunk.chunkText,
-              section: chunk.sectionName || "Segment"
-            });
+                hybridContext.push({
+                  paperId,
+                  title: paper.title || "Paper",
+                  chunkText: chunk.chunkText,
+                  section: chunk.sectionName || "Segment"
+                });
 
-            const sourceName = chunk.sectionName ? `Section: ${chunk.sectionName}` : "Document";
-            if (!sourceTracker.has(sourceName)) {
-                sourceTracker.add(sourceName);
-                sources.push(sourceName);
+                const sName = chunk.sectionName || "Document";
+                if (!sourceTracker.has(sName)) {
+                    sourceTracker.add(sName);
+                    sources.push(sName);
+                }
             }
-            if (hybridContext.length >= 6) break; 
         }
     }
 
@@ -148,41 +150,34 @@ async function askQuestion(req, res) {
       return res.end();
     }
 
-    // 2️⃣ Generate LLM Answer (Streaming)
+    // ── Answer Generation ────────────────────────────────────────────────────
     const answer = await generateSummary(question, hybridContext, chatHistory, (chunk) => {
       sendSSE({ chunk });
     });
 
     if (isStreamClosed) return;
 
-    // 3️⃣ Parallel Post-Processing (Optimization: Run evaluations and suggestions together)
+    // ── Parallel Post-Processing ─────────────────────────────────────────────
     const paperTitle = hybridContext[0]?.title || "Research Paper";
-    
-    console.log("🚀 Starting parallel post-processing...");
     const [retrievalRes, faithfulnessRes, suggestions] = await Promise.all([
       evaluateRetrieval(question, hybridContext),
       evaluateFaithfulness(answer, hybridContext),
       generateFollowUpSuggestions(question, answer, paperTitle)
     ]);
 
-    // Update History
     await addMessageToHistory(paperId, "user", question);
     await addMessageToHistory(paperId, "assistant", answer);
 
-    // Confidence Logic
-    const finalConfidence = parseFloat((0.4 * parseFloat(faithfulnessRes.groundingScore) + 0.6 * parseFloat(retrievalRes.precision)).toFixed(2));
-    const confidenceLabel = getConfidenceLabel(finalConfidence);
+    const finalScore = parseFloat((0.4 * parseFloat(faithfulnessRes.groundingScore) + 0.6 * parseFloat(retrievalRes.precision)).toFixed(2));
 
-    // 4️⃣ Final Events
     sendSSE({
       final: true,
-      confidenceScore: finalConfidence,
-      confidenceLabel,
+      confidenceScore: finalScore,
+      confidenceLabel: getConfidenceLabel(finalScore),
       sources
     });
     
     sendSSE({ suggestions });
-    
     res.end();
 
   } catch (error) {
