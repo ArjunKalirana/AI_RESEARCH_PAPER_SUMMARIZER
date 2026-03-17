@@ -1,7 +1,12 @@
 const { OpenAI } = require("openai");
 
+// --- AI CONFIGURATION (Groq Cloud is our free alternative) ---
+const GROQ_URL = "https://api.groq.com/openai/v1";
+const AI_MODEL = "llama-3.3-70b-versatile"; // High-quality free model on Groq
+
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
+    apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY,
+    baseURL: process.env.AI_BASE_URL || GROQ_URL
 });
 
 // ============================================================
@@ -69,7 +74,7 @@ RULES:
 
   try {
     const stream = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: AI_MODEL,
       messages: messages,
       temperature: 0.2,
       stream: true,
