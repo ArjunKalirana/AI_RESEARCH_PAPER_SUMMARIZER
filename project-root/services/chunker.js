@@ -1,7 +1,7 @@
 /**
  * Semantic chunker — splits text by natural paragraph boundaries (\n\n),
  * then merges small paragraphs together until they approach the target size.
- * This ensures sentences are NEVER cut in half, eliminating a key hallucination source.
+ * If a single paragraph is too large, it splits it by sentences recursively.
  *
  * @param {string} text        - Full extracted PDF text
  * @param {number} targetWords - Soft max words per chunk (default: 500)
@@ -12,45 +12,55 @@ function chunkText(text, targetWords = 500, overlapSentences = 2) {
   if (!text || text.trim().length === 0) return [];
 
   // Step 1: Split by double newlines (paragraph boundaries)
-  const rawParagraphs = text
+  let rawParagraphs = text
     .split(/\n{2,}/)
     .map((p) => p.replace(/\n/g, " ").trim())
-    .filter((p) => p.length > 30); // drop noise/headers under 30 chars
+    .filter((p) => p.length > 20);
 
   const chunks = [];
   let currentWords = [];
   let chunkIndex = 0;
-  let overlapBuffer = []; // holds last N sentences for overlap
 
   for (const paragraph of rawParagraphs) {
-    const paraWords = paragraph.split(" ");
+    const paraWords = paragraph.split(/\s+/);
 
-    // If adding this paragraph would overflow, flush current chunk first
-    if (currentWords.length + paraWords.length > targetWords && currentWords.length > 0) {
-      const chunkText = currentWords.join(" ");
-      chunks.push({ chunkIndex: chunkIndex++, text: chunkText });
-
-      // ✅ Overlap: carry last `overlapSentences` sentences into next chunk
-      // This preserves cross-boundary context so LLM doesn't lose thread
-      overlapBuffer = getLastNSentences(chunkText, overlapSentences);
-      currentWords = [...overlapBuffer.join(" ").split(" ").filter(Boolean)];
+    // If a single paragraph is larger than 1.5x target, split it by sentences
+    if (paraWords.length > targetWords * 1.5) {
+      const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
+      for (const sentence of sentences) {
+        const sentWords = sentence.split(/\s+/);
+        if (currentWords.length + sentWords.length > targetWords && currentWords.length > 0) {
+          flushChunk();
+        }
+        currentWords.push(...sentWords);
+      }
+      continue;
     }
 
+    // Normal paragraph merging
+    if (currentWords.length + paraWords.length > targetWords && currentWords.length > 0) {
+      flushChunk();
+    }
     currentWords.push(...paraWords);
   }
 
-  // Flush remaining words as final chunk
-  if (currentWords.length > 0) {
-    chunks.push({ chunkIndex: chunkIndex++, text: currentWords.join(" ") });
+  // Flush remaining
+  if (currentWords.length > 0) flushChunk();
+
+  function flushChunk() {
+    const chunkText = currentWords.join(" ").trim();
+    if (chunkText.length > 0) {
+      chunks.push({ chunkIndex: chunkIndex++, text: chunkText });
+      
+      // Overlap: Carry last N sentences
+      const overlapBuffer = getLastNSentences(chunkText, overlapSentences);
+      currentWords = overlapBuffer.join(" ").split(/\s+/).filter(Boolean);
+    }
   }
 
   return chunks;
 }
 
-/**
- * Helper: extract the last N sentences from a block of text.
- * Used to create semantic overlap between consecutive chunks.
- */
 function getLastNSentences(text, n) {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   return sentences.slice(-n);

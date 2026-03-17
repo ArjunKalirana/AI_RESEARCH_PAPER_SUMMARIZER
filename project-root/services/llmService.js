@@ -109,11 +109,12 @@ async function generateStructuredSummary(contextBlocks) {
   console.log("🧠 [Groq] Generating structured summary...");
   const contextText = contextBlocks
     .map((c, i) => `Chunk ${i + 1} (Section: ${c.section})\n${c.chunkText}`)
-    .join("\n---\n");
+    .join("\n---\n")
+    .slice(0, 12000); // 🚨 TPM GUARD: Limit total tokens to ~3k for summary
 
   try {
     const response = await groq.chat.completions.create({
-      model: SUMMARY_MODEL, // Using 8B for summary to save 70B tokens
+      model: SUMMARY_MODEL,
       messages: [
         {
           role: "system",
@@ -130,6 +131,14 @@ async function generateStructuredSummary(contextBlocks) {
     return response.choices[0].message.content.trim();
   } catch (error) {
     console.error("❌ Groq Summary Error:", error.message);
+    
+    // Auto-retry once for TPM errors
+    if (error.status === 413 || error.message.includes("tokens per minute")) {
+      console.log("🔄 TPM Limit hit. Waiting 1s and retrying summary...");
+      await new Promise(r => setTimeout(r, 1000));
+      return generateStructuredSummary(contextBlocks); 
+    }
+    
     return "Wait... The summary generator is briefly overloaded. Showing raw preview instead.";
   }
 }

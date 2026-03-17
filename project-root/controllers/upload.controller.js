@@ -167,6 +167,8 @@ async function uploadPaper(req, res) {
     for (const [sName, sText] of Object.entries(sections)) {
       if (shouldAbort()) return;
       if (sText && sText.length > 50) {
+        // 🐢 Pacing: Wait 1s between sections to respect TPM limits
+        await new Promise(r => setTimeout(r, 1000));
         summarizedSections[sName] = await summarizePaperSection(sName, sText);
       } else {
         summarizedSections[sName] = sText;
