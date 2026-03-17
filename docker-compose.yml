@@ -32,7 +32,7 @@ services:
       - FAISS_URL=http://faiss-service:8001
       - NEO4J_URL=bolt://neo4j:7687
       - PORT=3000
-      - OPENAI_API_KEY=your-openai-key
+      - PORT=3000
       - GROQ_API_KEY=your-groq-key
     depends_on:
       - faiss-service
