@@ -103,7 +103,7 @@ async function generateStructuredSummary(contextBlocks) {
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: AI_MODEL,
       messages: [
         {
           role: "system",
@@ -132,7 +132,7 @@ async function rewriteQuery(query, chatHistory = []) {
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: AI_MODEL,
       messages: [
         {
           role: "system",
