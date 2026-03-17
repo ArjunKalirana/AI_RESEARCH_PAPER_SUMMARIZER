@@ -8,7 +8,7 @@ const { normalizePaperJSON, validatePaperJSON } = require('../services/paperNorm
 const { extractMetadata } = require('../services/metadataExtractor');
 const { indexChunks } = require('../services/faissService');
 const { runQuery } = require('../services/neo4j.service');
-const { generateSummary, generateStructuredSummary } = require('../services/llmService');
+const { generateSummary, generateStructuredSummary, summarizePaperSection } = require('../services/llmService');
 
 const OUTPUT_DIR = path.join(__dirname, '../data/processed_papers');
 const vectorMapPath = path.join(__dirname, '../data/vector_map.json');
@@ -111,7 +111,19 @@ async function uploadPaper(req, res) {
     
     const summaryPreview = await generateStructuredSummary(summaryContext);
     
-    // Add summary to the final JSON
+    // 6.5️⃣ Generate individual summaries for each section
+    console.log(`🧠 Generating summaries for ${Object.keys(sections).length} sections...`);
+    const summarizedSections = {};
+    for (const [sName, sText] of Object.entries(sections)) {
+      if (sText && sText.length > 50) {
+        summarizedSections[sName] = await summarizePaperSection(sName, sText);
+      } else {
+        summarizedSections[sName] = sText;
+      }
+    }
+    
+    // Use summarized sections in the normalized paper
+    normalizedPaper.sections = summarizedSections;
     normalizedPaper.summaryPreview = summaryPreview;
     
     // 7️⃣ Save Processed JSON

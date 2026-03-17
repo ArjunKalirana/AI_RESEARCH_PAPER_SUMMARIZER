@@ -149,4 +149,29 @@ async function rewriteQuery(query, chatHistory = []) {
   }
 }
 
-module.exports = { generateSummary, generateStructuredSummary, rewriteQuery };
+async function summarizePaperSection(sectionName, sectionText) {
+  console.log(`🧠 [Groq] Summarizing section: ${sectionName}`);
+  try {
+    const response = await groq.chat.completions.create({
+      model: AI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert academic assistant. Summarize the following research paper section professionally. Focus on the core meaning and key points. Keep it under 150 words. Do not use conversational filler."
+        },
+        {
+          role: "user",
+          content: `SECTION NAME: ${sectionName}\n\nCONTENT:\n${sectionText.slice(0, 4000)}`
+        }
+      ],
+      temperature: 0.2,
+    });
+
+    return response.choices[0].message.content.trim();
+  } catch (error) {
+    console.error(`❌ Groq Section Summary Error (${sectionName}):`, error.message);
+    return sectionText.slice(0, 300) + "... (Summary failed)";
+  }
+}
+
+module.exports = { generateSummary, generateStructuredSummary, rewriteQuery, summarizePaperSection };
