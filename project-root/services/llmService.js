@@ -1,7 +1,8 @@
 const Groq = require("groq-sdk");
 
-// --- PURE GROQ CONFIGURATION ---
-const AI_MODEL = "llama-3.3-70b-versatile"; 
+// --- MODEL TIERING (Fixes 429 Rate Limits) ---
+const CHAT_MODEL = "llama-3.3-70b-versatile";     // For high-quality chat
+const SUMMARY_MODEL = "llama-3-8b-8192";           // For high-volume summarization (Higher TPD limits)
 
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY
@@ -71,7 +72,7 @@ RULES:
 
   try {
     const stream = await groq.chat.completions.create({
-      model: AI_MODEL,
+      model: CHAT_MODEL,
       messages: messages,
       temperature: 0.2,
       stream: true,
@@ -88,8 +89,17 @@ RULES:
     return extractAnswerFromResponse(fullText);
   } catch (error) {
     console.error("❌ Groq API Error:", error.message);
-    if (error.status === 401) {
-        return "ERROR: Invalid Groq API Key. Please check your docker-compose.yml settings.";
+    if (error.status === 429) {
+        console.log("🔄 429 Detected: Falling back to 8B model for chat...");
+        // Fallback for chat
+        const response = await groq.chat.completions.create({
+            model: SUMMARY_MODEL,
+            messages: messages,
+            temperature: 0.2,
+        });
+        const text = response.choices[0].message.content;
+        if (onChunk) onChunk(text);
+        return text;
     }
     return "Failed to connect to the AI service. Please try again.";
   }
@@ -103,7 +113,7 @@ async function generateStructuredSummary(contextBlocks) {
 
   try {
     const response = await groq.chat.completions.create({
-      model: AI_MODEL,
+      model: SUMMARY_MODEL, // Using 8B for summary to save 70B tokens
       messages: [
         {
           role: "system",
@@ -120,7 +130,7 @@ async function generateStructuredSummary(contextBlocks) {
     return response.choices[0].message.content.trim();
   } catch (error) {
     console.error("❌ Groq Summary Error:", error.message);
-    return "Failed to generate summary due to an API error.";
+    return "Wait... The summary generator is briefly overloaded. Showing raw preview instead.";
   }
 }
 
@@ -130,7 +140,7 @@ async function rewriteQuery(query, chatHistory = []) {
 
   try {
     const response = await groq.chat.completions.create({
-      model: AI_MODEL,
+      model: SUMMARY_MODEL, // 8B is perfect for simple rewrite tasks
       messages: [
         {
           role: "system",
@@ -153,7 +163,7 @@ async function summarizePaperSection(sectionName, sectionText) {
   console.log(`🧠 [Groq] Summarizing section: ${sectionName}`);
   try {
     const response = await groq.chat.completions.create({
-      model: AI_MODEL,
+      model: SUMMARY_MODEL, // Using 8B here is much safer for rate limits
       messages: [
         {
           role: "system",
@@ -170,7 +180,9 @@ async function summarizePaperSection(sectionName, sectionText) {
     return response.choices[0].message.content.trim();
   } catch (error) {
     console.error(`❌ Groq Section Summary Error (${sectionName}):`, error.message);
-    return sectionText.slice(0, 300) + "... (Summary failed)";
+    // Fallback: If AI fails, return a "Smart Snippet" instead of an error message
+    const snippet = sectionText.slice(0, 400).trim();
+    return snippet + (sectionText.length > 400 ? "..." : "");
   }
 }
 
