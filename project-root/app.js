@@ -5,6 +5,7 @@ const path = require('path');
 const uploadRoutes = require('./routes/upload.route');
 const summaryRoutes = require('./routes/summary.route');
 const askRoutes = require('./routes/ask.route');
+const compareRoutes = require('./routes/compare.route');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +22,7 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/api', uploadRoutes);
 app.use('/api', summaryRoutes);
 app.use('/api', askRoutes);
+app.use('/api', compareRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

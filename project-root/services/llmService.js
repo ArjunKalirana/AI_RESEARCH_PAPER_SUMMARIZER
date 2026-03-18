@@ -241,4 +241,71 @@ async function generateFollowUpSuggestions(question, answer, paperTitle) {
   }
 }
 
-module.exports = { generateSummary, generateStructuredSummary, rewriteQuery, summarizePaperSection, generateFollowUpSuggestions };
+async function generateComparison(question, labeledContext, streamCallback) {
+  console.log("🧠 [Groq] Generating multi-paper comparison...");
+  
+  // Group context by label
+  const groupedContext = {};
+  labeledContext.forEach(c => {
+    if (!groupedContext[c.paperLabel]) {
+      groupedContext[c.paperLabel] = { title: c.paperTitle, chunks: [] };
+    }
+    groupedContext[c.paperLabel].chunks.push(c.chunkText);
+  });
+
+  let contextStr = "";
+  for (const [label, data] of Object.entries(groupedContext)) {
+    contextStr += `[${label}] (${data.title}):\n${data.chunks.join("\n")}\n\n`;
+  }
+
+  const messages = [
+    {
+      role: "system",
+      content: `You are an expert research analyst comparing multiple academic papers.
+You will be given excerpts from several papers, each labeled [Paper A], [Paper B], etc.
+
+RULES:
+1. ALWAYS cite which paper each point comes from using [Paper A], [Paper B] notation.
+2. Be analytical and comparative — don't just summarize each paper separately.
+3. Highlight agreements, contradictions, and unique contributions.
+4. If only one paper addresses a point, say so explicitly.
+5. Be concise but thorough. Use markdown for structure (bullet points, bold text).`
+    },
+    {
+      role: "user",
+      content: `User Question: "${question}"\n\nContext from papers:\n${contextStr}\n\nAnswer comparatively, citing [Paper A], [Paper B] etc. for each point.`
+    }
+  ];
+
+  try {
+    const stream = await groq.chat.completions.create({
+      model: CHAT_MODEL,
+      messages: messages,
+      temperature: 0.3,
+      max_tokens: 1000,
+      stream: true,
+    });
+
+    let fullText = "";
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        fullText += content;
+        if (streamCallback) streamCallback(content);
+      }
+    }
+    return fullText;
+  } catch (error) {
+    console.error("❌ Groq Comparison Error:", error.message);
+    throw error;
+  }
+}
+
+module.exports = { 
+  generateSummary, 
+  generateStructuredSummary, 
+  rewriteQuery, 
+  summarizePaperSection, 
+  generateFollowUpSuggestions,
+  generateComparison
+};
