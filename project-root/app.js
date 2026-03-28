@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const uploadRoutes = require('./routes/upload.route');
 const summaryRoutes = require('./routes/summary.route');
@@ -15,8 +16,25 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve frontend static files if needed (assuming frontend is in ../frontend)
-app.use(express.static(path.join(__dirname, 'frontend')));
+// Diagnostic: Check if frontend exists in the container
+const frontendPath = path.join(__dirname, 'frontend');
+if (fs.existsSync(frontendPath)) {
+    console.log("✅ Frontend folder found at:", frontendPath);
+    console.log("📂 Content:", fs.readdirSync(frontendPath));
+} else {
+    console.error("❌ Frontend folder NOT found at:", frontendPath);
+}
+
+// Serve frontend static files
+app.use(express.static(frontendPath));
+
+// Explicit Root Redirect
+app.get('/', (req, res) => {
+    res.redirect('/upload.html');
+});
+
+// Dummy Favicon handler to stop 404 logs
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // API Routes
 app.use('/api', uploadRoutes);
