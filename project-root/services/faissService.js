@@ -38,7 +38,7 @@ async function searchQuery(query, index_id, k = 6) {
       index_id: index_id,
       query: query,
       k: k,
-    });
+    }, { timeout: 15000 });
     console.log(`[FAISS] /search SUCCESS`);
     return response.data;
   }
@@ -54,7 +54,7 @@ async function searchQueryReranked(query, index_id, k = 5, fetch_k = 20) {
     query: query,
     k: k,
     fetch_k: fetch_k,
-  });
+  }, { timeout: 30000 });
 
   if (response.data.error) {
     console.error(`[FAISS] /search-reranked returned error: ${response.data.error}`);
