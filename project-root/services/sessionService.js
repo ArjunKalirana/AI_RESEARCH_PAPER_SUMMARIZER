@@ -1,8 +1,16 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
 // Initialize database
 const dbPath = path.join(__dirname, '../data/sessions.db');
+
+// Ensure data directory exists before creating the SQLite DB
+const dataDir = path.dirname(dbPath);
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('❌ Could not connect to SQLite Session DB', err.message);
