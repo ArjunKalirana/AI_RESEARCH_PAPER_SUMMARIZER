@@ -1,5 +1,9 @@
 const axios = require("axios");
-const FAISS_URL = process.env.FAISS_URL || "http://localhost:8001";
+let FAISS_URL = process.env.FAISS_URL || "http://localhost:8001";
+// Trim trailing slash to prevent double slashes like //index
+if (FAISS_URL.endsWith("/")) {
+  FAISS_URL = FAISS_URL.slice(0, -1);
+}
 
 console.log(`🔌 [FAISS] Service URL: ${FAISS_URL}`);
 
