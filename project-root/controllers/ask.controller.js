@@ -1,6 +1,5 @@
 const fs = require('fs');
-const path = require('pStId: 1246
-ath');
+const path = require('path');
 const { searchQuery, computeSimilarity } = require('../services/faissService');
 const { runQuery } = require('../services/neo4j.service');
 const { generateSummary, rewriteQuery, generateFollowUpSuggestions } = require('../services/llmService');
