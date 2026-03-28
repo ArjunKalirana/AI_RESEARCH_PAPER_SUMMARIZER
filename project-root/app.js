@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve frontend static files if needed (assuming frontend is in ../frontend)
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, 'frontend')));
 
 // API Routes
 app.use('/api', uploadRoutes);

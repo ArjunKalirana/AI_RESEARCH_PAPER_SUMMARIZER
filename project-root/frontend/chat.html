@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI Research Chat Interface</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,FILL@0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1e68f1",
+                        "background-light": "#ffffff",
+                        "background-dark": "#0f172a",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in { animation: fade-in-up 0.4s ease forwards; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 h-screen flex flex-col">
+<header class="flex h-14 w-full items-center justify-between border-b border-slate-100 bg-white px-8 dark:border-slate-800 dark:bg-slate-900 z-20">
+<div class="flex items-center gap-8 h-full">
+<div class="flex items-center gap-2 group cursor-pointer" onclick="window.location.href='/'">
+<div class="bg-primary p-1 rounded-lg text-white">
+<span class="material-symbols-outlined text-lg block">auto_awesome</span>
+</div>
+<h1 class="font-bold text-sm tracking-tight">ResearchAI</h1>
+</div>
+<nav class="hidden md:flex h-full items-center gap-8">
+<a class="flex h-full items-center text-xs font-medium text-slate-400 hover:text-slate-600 border-b-2 border-transparent transition-colors" href="upload.html">Upload</a>
+<a class="flex h-full items-center text-xs font-medium text-slate-400 hover:text-slate-600 border-b-2 border-transparent transition-colors" href="summary.html">Summary</a>
+<a class="flex h-full items-center text-xs font-semibold text-primary border-b-2 border-primary" href="#">Ask AI</a>
+<a class="flex h-full items-center text-xs font-medium text-slate-400 hover:text-slate-600 border-b-2 border-transparent transition-colors" href="compare.html">Compare</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full dark:bg-slate-800 uppercase tracking-tight">
+<span class="material-symbols-outlined text-[14px]">description</span>
+<span id="headerPaperTitle" class="max-w-[200px] truncate">Paper Analysis Active</span>
+</div>
+<div class="h-8 w-8 rounded-full bg-slate-100 overflow-hidden border border-slate-200 cursor-pointer">
+<img alt="User" class="h-full w-full object-cover" src="https://ui-avatars.com/api/?name=Research+User&background=1e68f1&color=fff"/>
+</div>
+</div>
+</header>
+<main class="relative flex flex-1 flex-col overflow-hidden">
+<div class="flex-1 overflow-y-auto custom-scrollbar pt-10 pb-32">
+<div id="chatContainer" class="mx-auto max-w-3xl px-6 space-y-10">
+<!-- First Greeting -->
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assistant</span>
+</div>
+<div class="text-base leading-relaxed text-slate-700 dark:text-slate-300">
+                    Hello! I've indexed this research paper. What specific aspect would you like to explore first?
+                </div>
+</div>
+</div>
+</div>
+<div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white/95 to-transparent pb-8 pt-12 dark:from-background-dark dark:via-background-dark/95">
+<div class="mx-auto max-w-3xl px-6">
+<div id="quickSuggestions" class="flex items-center gap-2 overflow-x-auto no-scrollbar mb-4">
+<button class="whitespace-nowrap rounded-full bg-slate-50 border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-primary hover:text-primary transition-all dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400">
+                    What is the main contribution?
+                </button>
+<button class="whitespace-nowrap rounded-full bg-slate-50 border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-primary hover:text-primary transition-all dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400">
+                    Explain methodology
+                </button>
+<button class="whitespace-nowrap rounded-full bg-slate-50 border border-slate-200 px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-primary hover:text-primary transition-all dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400">
+                    Summary of results
+                </button>
+</div>
+<div class="relative flex items-center group transition-all rounded-full bg-white px-2 py-1.5 shadow-md border border-slate-200 dark:bg-slate-900 dark:border-slate-800 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/5">
+<input id="chatInput" class="w-full border-none bg-transparent px-4 py-2 text-sm focus:outline-none focus:ring-0 placeholder:text-slate-400 dark:text-white" placeholder="Ask anything about this paper..." type="text"/>
+<button id="sendBtn" class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white transition-all active:scale-90 hover:shadow-lg hover:shadow-primary/20">
+<span class="material-symbols-outlined text-lg">send</span>
+</button>
+</div>
+<p class="mt-3 text-center text-[10px] text-slate-400 font-medium uppercase tracking-widest">Research Assistant Powered by Llama 3</p>
+</div>
+</div>
+</main>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paperId = urlParams.get('paperId');
+
+        if (!paperId) {
+            alert('No paperId found in URL.');
+            window.location.href = 'upload.html';
+            return;
+        }
+
+        const chatContainer = document.getElementById('chatContainer');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const quickSuggestions = document.getElementById('quickSuggestions');
+
+        // Bind quick suggestion buttons
+        document.querySelectorAll('#quickSuggestions button').forEach(btn => {
+            btn.onclick = () => {
+                chatInput.value = btn.innerText;
+                handleSend();
+            };
+        });
+
+        chatInput.onkeypress = (e) => { if (e.key === 'Enter') handleSend(); };
+        sendBtn.onclick = handleSend;
+
+        async function handleSend() {
+            const question = chatInput.value.trim();
+            if (!question) return;
+
+            // Clear any existing follow-up chips from previous messages
+            document.querySelectorAll('.suggestions-container').forEach(el => el.remove());
+
+            // 1. Append User Message
+            appendUserMessage(question);
+            chatInput.value = '';
+            
+            // 2. Append Loading Assistant Message
+            const loadingId = 'msg-' + Date.now();
+            appendAssistantMessage("Thinking...", null, loadingId);
+            
+            scrollToBottom();
+
+            let reader = null;
+            try {
+                const response = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paperId, question })
+                });
+
+                if (!response.ok) {
+                    updateAssistantMessage(loadingId, "I'm sorry, I encountered a server error.");
+                    return;
+                }
+
+                reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let isFirstChunk = true;
+                let fullText = "";
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const events = buffer.split('\n\n');
+                    buffer = events.pop();
+
+                    for (const event of events) {
+                        if (!event.startsWith('data: ')) continue;
+                        
+                        try {
+                            const data = JSON.parse(event.substring(6));
+
+                            if (data.error) {
+                                updateAssistantMessage(loadingId, data.error);
+                                break;
+                            }
+
+                            if (data.chunk) {
+                                if (isFirstChunk) {
+                                    updateAssistantMessage(loadingId, ""); // Clear "Thinking..."
+                                    isFirstChunk = false;
+                                }
+                                fullText += data.chunk;
+                                updateAssistantMessage(loadingId, renderMarkdown(fullText), false);
+                                scrollToBottom();
+                            }
+
+                            if (data.final) {
+                                injectMetadata(loadingId, data);
+                            }
+
+                            if (data.suggestions) {
+                                renderSuggestions(loadingId, data.suggestions);
+                                scrollToBottom();
+                            }
+
+                        } catch (err) { }
+                    }
+                }
+
+            } catch (err) {
+                updateAssistantMessage(loadingId, "Connection lost.");
+            } finally {
+               if (reader) reader.releaseLock();
+            }
+        }
+
+        function appendUserMessage(text) {
+            const html = `
+                <div class="flex flex-col items-end animate-in">
+                    <div class="inline-block rounded-2xl bg-slate-100 px-5 py-3 text-slate-800 dark:bg-slate-800 dark:text-slate-200 text-sm font-medium max-w-[85%] border border-slate-200 dark:border-slate-700">
+                        ${text}
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+        }
+
+        function appendAssistantMessage(text, badgeHtml = '', id = '') {
+            const html = `
+                <div class="space-y-4 animate-in" id="${id}">
+                    <div class="flex items-center gap-3">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Assistant</span>
+                        <div class="badge-target flex items-center gap-2"></div>
+                    </div>
+                    <div class="text-base leading-relaxed text-slate-700 dark:text-slate-300 transition-all message-body">
+                        ${text}
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+        }
+
+        function updateAssistantMessage(id, html, final = true) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const body = el.querySelector('.message-body');
+            if (body) body.innerHTML = html;
+        }
+
+        function injectMetadata(id, data) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            
+            const badgeTarget = el.querySelector('.badge-target');
+            if (badgeTarget && data.confidenceLabel) {
+                let badgeClass = '';
+                if (data.confidenceLabel === 'High') badgeClass = 'bg-green-50 text-green-700 ring-green-600/20';
+                else if (data.confidenceLabel === 'Medium') badgeClass = 'bg-yellow-50 text-yellow-700 ring-yellow-600/20';
+                else badgeClass = 'bg-red-50 text-red-700 ring-red-600/20';
+                
+                const pct = Math.round((data.confidenceScore || 0) * 100);
+                badgeTarget.innerHTML = `
+                    <div class="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold ring-1 ring-inset ${badgeClass} uppercase">
+                        Confidence: ${pct}%
+                    </div>
+                `;
+            }
+
+            if (data.sources && data.sources.length > 0) {
+                const body = el.querySelector('.message-body');
+                const sourceHtml = `
+                    <div class="flex items-center gap-2 mt-4 pt-3 border-t border-slate-50 dark:border-slate-800">
+                        <span class="text-[10px] font-bold text-slate-300 uppercase">Context: ${data.sources[0]}</span>
+                    </div>
+                `;
+                body.insertAdjacentHTML('beforeend', sourceHtml);
+            }
+        }
+
+        function renderSuggestions(id, suggestions) {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            // Prevent duplicate suggestion boxes
+            if (el.querySelector('.suggestions-container')) return;
+
+            const container = document.createElement('div');
+            container.className = 'suggestions-container flex flex-wrap gap-2 mt-4 animate-in';
+            suggestions.forEach(q => {
+                const btn = document.createElement('button');
+                btn.className = 'suggestion-chip px-3 py-1.5 text-[13px] font-medium text-primary border border-primary/20 rounded-full hover:bg-primary/5 hover:border-primary/40 transition-all active:scale-95';
+                btn.innerText = q;
+                btn.onclick = () => {
+                    chatInput.value = q;
+                    handleSend();
+                };
+                container.appendChild(btn);
+            });
+            el.appendChild(container);
+        }
+
+        function scrollToBottom() {
+            const container = document.querySelector('.custom-scrollbar');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function renderMarkdown(text) {
+            return text
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
+                .replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+        }
+    });
+</script>
+</body></html>

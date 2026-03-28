@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Simplified Workflow - Summary</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1e68f1",
+                        "background-light": "#f5f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .prose-custom p {
+            margin-bottom: 1.25rem;
+            line-height: 1.75;
+            color: #334155;
+        }
+        .prose-custom h3 {
+            font-weight: 700;
+            font-size: 1.25rem;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex justify-between items-center h-16">
+<!-- Logo & Title -->
+<div class="flex items-center gap-3">
+<div class="bg-primary p-1.5 rounded-lg">
+<span class="material-symbols-outlined text-white text-xl">auto_stories</span>
+</div>
+<span class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ResearchAi</span>
+</div>
+<!-- Navigation Tabs -->
+<nav class="hidden md:flex items-center space-x-1">
+<a class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors" href="#">Upload</a>
+<a class="px-4 py-2 text-sm font-semibold text-primary bg-primary/10 rounded-lg" href="#">Summary</a>
+<a class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors" href="#">Ask AI</a>
+</nav>
+<!-- Actions & Profile -->
+<div class="flex items-center gap-3">
+<button class="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 ml-2 overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="User profile avatar with minimalist icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDz1sJi-8W7DK2Noji7TW4LgTuWegnu9qDWz59ChsigtXHuO-maDX0PqjVRksmLZgzlihcZv87uDksEq5XzuepWPucpqAnuL547_9G-CbW_mrkLVWA7bZM3ga1hKmx7JZxs9zFuFo9czJsvoMzmVJc-Kb7n4wUrWGlqd0yGYCc1QuXAK2omSE-1U-FP0aej521llPGlSUOKCzmuYt0GwyAF-gH-JAeKAR-rlyWp3c7fimJXLWThrpwBx_z0U4Sx3ifow9_625dMwp0"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-4xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+<!-- Breadcrumb -->
+<nav class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-8">
+<a class="hover:text-primary transition-colors" href="#">Dashboard</a>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-slate-900 dark:text-slate-200 font-medium">Research Paper Summary</span>
+</nav>
+<!-- Paper Header -->
+<div class="mb-10">
+<div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+<div class="flex-1">
+<h1 id="paperTitle" class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight mb-4 tracking-tight">
+                        Loading Summary...
+                    </h1>
+<div class="flex flex-wrap items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-base">person</span>
+                            <span id="paperAuthors">...</span>
+                        </span>
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-base">calendar_today</span>
+                            Published: <span id="paperYear">...</span>
+                        </span>
+</div>
+</div>
+<div class="flex gap-2">
+<button id="downloadPdfBtn" class="flex items-center gap-2 px-4 py-2.5 bg-primary text-white font-bold text-sm rounded-lg hover:bg-primary/90 transition-all shadow-sm">
+<span class="material-symbols-outlined text-lg">download</span>
+<span>Download PDF</span>
+</button>
+<button id="shareSummaryBtn" class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 transition-all" title="Share">
+<span class="material-symbols-outlined">share</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Summary Content -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-8 sm:p-12">
+<!-- TL;DR Section -->
+<section class="mb-12">
+<div class="flex items-center gap-2 mb-4 text-primary">
+<span class="material-symbols-outlined font-bold">bolt</span>
+<h2 class="text-xl font-bold tracking-tight">Summary</h2>
+</div>
+<div class="bg-primary/5 border-l-4 border-primary p-6 rounded-r-lg shadow-inner">
+<div id="paperSummary" class="prose prose-slate dark:prose-invert prose-p:leading-relaxed prose-headings:text-primary max-w-none">
+    <p class="italic text-slate-500">Loading...</p>
+</div>
+</div>
+</section>
+
+<!-- Extracted Sections (Dynamic) -->
+<section id="sectionsContainer" class="mb-12 prose-custom">
+    <h3 class="flex items-center gap-2">
+    <span class="material-symbols-outlined text-primary">biotech</span>
+        Extracted Sections
+    </h3>
+    <div id="sectionsList" class="space-y-4"></div>
+</section>
+<!-- Bottom Action Bar -->
+<div class="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<button id="copySummaryBtn" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+                        <span id="copySummaryText">Copy Summary</span>
+                    </button>
+</div>
+<button id="askAiBtn" class="flex items-center gap-2 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all">
+<span>Ask AI more about this paper</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Simple Footer -->
+<footer class="mt-16 text-center text-slate-400 dark:text-slate-500 text-xs py-8">
+<p>© 2026 ResearchAi</p>
+<div class="flex justify-center gap-4 mt-2">
+<a class="hover:underline" href="#">Terms</a>
+<a class="hover:underline" href="#">Privacy</a>
+<a class="hover:underline" href="#">Help Center</a>
+</div>
+</footer>
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paperId = urlParams.get('paperId');
+
+        if (!paperId) {
+            alert('No paperId found in URL.');
+            return;
+        }
+
+        document.getElementById('askAiBtn').addEventListener('click', () => {
+             window.location.href = `code.html?paperId=${paperId}`;
+        });
+
+        // Setup Download PDF functionality
+        document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+            window.location.href = `/api/download/${paperId}`;
+        });
+
+        // Setup share functionality
+        document.getElementById('shareSummaryBtn').addEventListener('click', async () => {
+            const currentUrl = window.location.href;
+            const title = document.getElementById('paperTitle').textContent.trim() || 'Research Paper Summary';
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: title,
+                        text: `Check out this AI-generated summary for: ${title}`,
+                        url: currentUrl
+                    });
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.error('Error sharing:', err);
+                    }
+                }
+            } else {
+                // Fallback for browsers that don't support Web Share API
+                try {
+                    await navigator.clipboard.writeText(currentUrl);
+                    alert("Link copied to clipboard!");
+                } catch (err) {
+                    console.error("Failed to copy link: ", err);
+                }
+            }
+        });
+
+        let rawSummaryData = ""; // Store for copying
+
+        try {
+            const res = await fetch(`/api/summary/${paperId}`);
+            if (!res.ok) throw new Error('Failed to load summary');
+            const data = await res.json();
+
+            document.getElementById('paperTitle').textContent = data.title;
+            
+            let authorTxt = "Unknown Authors";
+            if (data.authors && data.authors.length > 0) {
+               authorTxt = data.authors.map(a => a.authorName || a).join(', ');
+            }
+            document.getElementById('paperAuthors').textContent = authorTxt;
+            document.getElementById('paperYear').textContent = data.year || "Unknown";
+            
+            // Render markdown through marked.js, sanitizing isn't strictly necessary since it's our own LLM but good practice
+            rawSummaryData = data.summary || "No summary available.";
+            document.getElementById('paperSummary').innerHTML = marked.parse(rawSummaryData);
+
+            // Set up copy functionality now that we have the data
+            document.getElementById('copySummaryBtn').addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(rawSummaryData);
+                    const copyTextSpan = document.getElementById('copySummaryText');
+                    const originalText = copyTextSpan.textContent;
+                    copyTextSpan.textContent = "Copied!";
+                    setTimeout(() => {
+                        copyTextSpan.textContent = originalText;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                }
+            });
+
+            const sectionsList = document.getElementById('sectionsList');
+            if (data.sections && Object.keys(data.sections).length > 0) {
+                for (const [sName, sText] of Object.entries(data.sections)) {
+                    if (!sText || sText.trim().length === 0) continue;
+                    
+                    const secDiv = document.createElement('div');
+                    secDiv.innerHTML = `
+                        <h4 class="font-bold text-slate-800 dark:text-slate-200 mt-4">${sName}</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">${sText.substring(0, 500)}...</p>
+                    `;
+                    sectionsList.appendChild(secDiv);
+                }
+            } else {
+                sectionsList.innerHTML = "<p>No detailed sections extracted.</p>";
+            }
+
+        } catch (error) {
+            console.error('Error fetching summary:', error);
+            document.getElementById('paperSummary').innerHTML = `<p class="text-red-500">Failed to load summary. ${error.message}</p>`;
+        }
+    });
+</script>
+</body></html>
