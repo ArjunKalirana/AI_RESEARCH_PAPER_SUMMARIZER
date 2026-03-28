@@ -17,9 +17,11 @@ app = FastAPI()
 DIMENSION = 384
 os.makedirs("index_store", exist_ok=True)
 
+import gc
+
 # ── 1. In-Memory Cache ────────────────────────────────────────────────────────
 class IndexCache:
-    def __init__(self, max_size=15):
+    def __init__(self, max_size=3):
         self.indices = {} # paper_id -> faiss_index
         self.chunks = {}  # paper_id -> list of chunk dicts
         self.order = []   # LRU tracking
@@ -56,13 +58,14 @@ class IndexCache:
             oldest = self.order.pop(0)
             if oldest in self.indices: del self.indices[oldest]
             if oldest in self.chunks: del self.chunks[oldest]
-            print(f"🧹 Evicted {oldest} from cache.")
+            print(f"🧹 Evicted {oldest} and running garbage collector.")
+            gc.collect() # 🚀 CRITICAL for small-memory containers
         
         self.indices[index_id] = index
         self.chunks[index_id] = chunks
         self.order.append(index_id)
 
-index_cache = IndexCache(max_size=15)
+index_cache = IndexCache(max_size=3)
 
 # Bi-encoder: fast embedding model for FAISS retrieval
 model = SentenceTransformer("all-MiniLM-L6-v2")
