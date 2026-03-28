@@ -59,6 +59,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!', details: err.message });
 });
 
+const { rebuildIndicesFromDisk } = require('./services/faissService');
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    
+    // Initial rebuild of FAISS indices on startup to handle ephemeral filesystem loss
+    setTimeout(() => {
+      rebuildIndicesFromDisk().catch(err => console.error("❌ FAISS Startup Rebuild Failed:", err.message));
+    }, 5000);
 });

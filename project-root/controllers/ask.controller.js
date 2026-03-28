@@ -70,10 +70,10 @@ async function askQuestion(req, res) {
   };
 
   try {
-    const { paperId, question } = req.body;
-
+    // Validate body BEFORE committing to SSE mode
+    const { paperId, question } = req.body || {};
     if (!paperId || !question) {
-      return res.status(400).json({ error: 'paperId and question are required' });
+      return res.status(400).json({ error: 'paperId and question are required. Send Content-Type: application/json.' });
     }
 
     // ── Headers ──────────────────────────────────────────────────────────────

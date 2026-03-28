@@ -78,4 +78,33 @@ async function computeSimilarity(text1, text2) {
   }
 }
 
-module.exports = { indexChunks, searchQuery, searchQueryReranked, computeSimilarity };
+async function rebuildIndicesFromDisk() {
+  const fs = require('fs');
+  const path = require('path');
+  const PROCESSED_DIR = path.join(__dirname, '../data/processed_papers');
+
+  if (!fs.existsSync(PROCESSED_DIR)) {
+    console.log("📂 [FAISS-Rebuild] No processed papers directory found. Skipping.");
+    return;
+  }
+
+  const files = fs.readdirSync(PROCESSED_DIR).filter(f => f.endswith('.json'));
+  console.log(`📂 [FAISS-Rebuild] Found ${files.length} papers to re-index.`);
+
+  for (const file of files) {
+    try {
+      const filePath = path.join(PROCESSED_DIR, file);
+      const paper = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      
+      if (paper.chunks && paper.paperId) {
+        console.log(`🔄 [FAISS-Rebuild] Re-indexing paper: ${paper.paperId}`);
+        await indexChunks(paper.chunks, paper.paperId);
+      }
+    } catch (err) {
+      console.error(`❌ [FAISS-Rebuild] Failed to re-index ${file}:`, err.message);
+    }
+  }
+  console.log("✅ [FAISS-Rebuild] Finished re-indexing process.");
+}
+
+module.exports = { indexChunks, searchQuery, searchQueryReranked, computeSimilarity, rebuildIndicesFromDisk };
