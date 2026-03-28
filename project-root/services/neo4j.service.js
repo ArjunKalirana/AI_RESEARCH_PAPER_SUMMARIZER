@@ -20,7 +20,7 @@ const driver = neo4j.driver(
 );
 
 async function runQuery(query, params = {}, retryCount = 3) {
-  const session = driver.session({ database: "neo4j" });
+  const session = driver.session();
   try {
     return await session.run(query, params);
   } catch (error) {
