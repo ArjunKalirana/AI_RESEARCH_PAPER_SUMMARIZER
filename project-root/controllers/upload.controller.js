@@ -116,7 +116,8 @@ async function uploadPaper(req, res) {
       authors: metadata.authors,
       sections,
       chunks,
-      fullTextLength: cleanedText.length
+      fullTextLength: cleanedText.length,
+      rawFileName: filename
     };
 
     const normalizedPaper = normalizePaperJSON(rawPaperJSON);
@@ -193,10 +194,8 @@ async function uploadPaper(req, res) {
     if (isSSE) await sendError('processing', error);
     else res.status(500).json({ success: false, error: error.message });
   } finally {
-    if (req.file && req.file.path && !shouldAbort()) {
-      // Clean up the raw file after ingestion
-      fs.unlink(req.file.path, () => {});
-    }
+    // Note: We no longer delete the raw file here so that the download feature works.
+    // Railway ephemeral storage will clean up these files on redeploy.
   }
 }
 

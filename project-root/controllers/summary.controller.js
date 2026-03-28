@@ -47,22 +47,30 @@ async function downloadPaper(req, res) {
       return res.status(400).json({ error: 'Invalid paper ID' });
     }
 
-    // Reconstruction: paperId format is {sourceName}_{multerFileName}
-    const parts = paperId.split('_');
-    if (parts.length < 2) {
-      return res.status(400).json({ error: 'Malformed paper ID structure' });
+    // Path to the processed metadata JSON
+    const cleanPaperId = path.basename(paperId);
+    const metaPath = path.join(DATA_DIR, `${cleanPaperId}.json`);
+
+    if (!fs.existsSync(metaPath)) {
+      return res.status(404).json({ error: 'Paper metadata not found' });
     }
 
-    const pdfFilename = path.basename(parts.slice(1).join('_') + '.pdf');
+    const paperData = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+    const rawFileName = paperData.rawFileName;
+
+    if (!rawFileName) {
+      return res.status(404).json({ error: 'Original PDF filename not found in metadata' });
+    }
+
     const RAW_DIR = path.join(__dirname, '../data/raw_papers');
-    const pdfPath = path.join(RAW_DIR, pdfFilename);
+    const pdfPath = path.join(RAW_DIR, rawFileName);
 
     if (!fs.existsSync(pdfPath)) {
-      return res.status(404).json({ error: 'Original PDF file not found on server' });
+      return res.status(404).json({ error: 'Original PDF file was cleaned up or is missing from server' });
     }
 
     // Prompt browser to download the file directly
-    res.download(pdfPath, `ResearchPaper_${pdfFilename}`);
+    res.download(pdfPath, `ResearchPaper_${rawFileName.split('-').slice(1).join('-')}`);
   } catch (error) {
     console.error('❌ Download Route Error:', error);
     res.status(500).json({ error: 'Failed to download paper PDF' });

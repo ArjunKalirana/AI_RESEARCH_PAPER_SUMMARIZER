@@ -12,12 +12,10 @@ function normalizePaperJSON(paper) {
       },
   
       authors: paper.authors || [],
-  
       sections: paper.sections || {},
-  
       chunks: paper.chunks || [],
-  
-      fullTextLength: paper.textLength || 0
+      fullTextLength: paper.textLength || 0,
+      rawFileName: paper.rawFileName || null
     };
   }
   
