@@ -63,94 +63,114 @@ async function askQuestion(req, res) {
     if (isStreamClosed || res.writableEnded) return;
     try {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
-      // res.flush() // uncomment if using compression middleware
     } catch (e) {
       console.error("[SSE] Write failed:", e.message);
     }
   };
 
   try {
-    // Validate body BEFORE committing to SSE mode
-    const { paperId, question } = req.body || {};
-    if (!paperId || !question) {
-      return res.status(400).json({ error: 'paperId and question are required. Send Content-Type: application/json.' });
+    const { paperId, paperIds: rawPaperIds, question } = req.body || {};
+    
+    // Support both single and multi-paper mode
+    let targetPaperIds = rawPaperIds && Array.isArray(rawPaperIds) && rawPaperIds.length > 0
+      ? rawPaperIds
+      : paperId ? [paperId] : [];
+
+    if (targetPaperIds.length === 0 || !question) {
+      return res.status(400).json({ error: 'paperId (or paperIds array) and question are required. Send Content-Type: application/json.' });
     }
 
     // ── Headers ──────────────────────────────────────────────────────────────
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // 🚀 CRITICAL for Nginx/AWS
+    res.setHeader('X-Accel-Buffering', 'no'); 
     res.flushHeaders();
 
-    const chatHistory = await getChatHistory(paperId);
+    // Generate unique session ID for multi-paper chat history
+    const sessionId = targetPaperIds.sort().join('_');
+    const chatHistory = await getChatHistory(sessionId);
     const refinedQuery = await rewriteQuery(question, chatHistory);
 
     // ── Retrieval ────────────────────────────────────────────────────────────
-    const searchResult = await searchQuery(refinedQuery, paperId, 6);
-    
     const hybridContext = [];
     const sourceTracker = new Set();
     const sources = [];
 
-    const paperFile = `${paperId}.json`;
-    const paperPath = path.join(processedPath, paperFile);
-    
-    if (fs.existsSync(paperPath)) {
-        const paper = JSON.parse(fs.readFileSync(paperPath, 'utf-8'));
-        const sortedChunks = [...paper.chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
+    // Parallel search across all papers
+    const searchResults = await Promise.all(
+      targetPaperIds.map(id => searchQuery(refinedQuery, id, targetPaperIds.length > 1 ? 3 : 6).catch(e => {
+        console.error(`Search failed for ${id}:`, e.message);
+        return { results: [], indices: [], distances: [] };
+      }))
+    );
 
-        // ✅ HANDLE BOTH: Basic FAISS format OR Reranker result format
-        if (searchResult.results && searchResult.results.length > 0) {
-            // RERANKER PATH
-            for (const res of searchResult.results) {
+    for (let i = 0; i < targetPaperIds.length; i++) {
+        const id = targetPaperIds[i];
+        const result = searchResults[i];
+        const paperPath = path.join(processedPath, `${id}.json`);
+        
+        if (!fs.existsSync(paperPath)) continue;
+        const paper = JSON.parse(fs.readFileSync(paperPath, 'utf-8'));
+
+        if (result.results && result.results.length > 0) {
+            for (const res of result.results) {
                 hybridContext.push({
-                    paperId,
+                    paperId: id,
                     title: paper.title || "Paper",
                     chunkText: res.text,
                     section: res.sectionName || "Context"
                 });
-                const sName = res.sectionName || "Document";
-                if (!sourceTracker.has(sName)) {
-                    sourceTracker.add(sName);
-                    sources.push(sName);
+                const sLabel = targetPaperIds.length > 1 ? `${paper.title}: ${res.sectionName || 'Document'}` : (res.sectionName || "Document");
+                if (!sourceTracker.has(sLabel)) {
+                    sourceTracker.add(sLabel);
+                    sources.push(sLabel);
                 }
             }
         } else {
-            // BASIC SEARCH PATH
-            const allIndices = Array.isArray(searchResult.indices) ? (Array.isArray(searchResult.indices[0]) ? searchResult.indices[0] : searchResult.indices) : [];
-            const allDistances = Array.isArray(searchResult.distances) ? (Array.isArray(searchResult.distances[0]) ? searchResult.distances[0] : searchResult.distances) : [];
+            const allIndices = Array.isArray(result.indices) ? (Array.isArray(result.indices[0]) ? result.indices[0] : result.indices) : [];
+            const allDistances = Array.isArray(result.distances) ? (Array.isArray(result.distances[0]) ? result.distances[0] : result.distances) : [];
+            const sortedChunks = [...paper.chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
 
-            for (let i = 0; i < allIndices.length; i++) {
-                const idx = allIndices[i];
-                const sim = allDistances[i];
+            for (let j = 0; j < allIndices.length; j++) {
+                const idx = allIndices[j];
+                const sim = allDistances[j];
                 const chunk = sortedChunks[idx];
                 if (!chunk || sim < 0.20) continue;
 
                 hybridContext.push({
-                  paperId,
+                  paperId: id,
                   title: paper.title || "Paper",
                   chunkText: chunk.chunkText,
                   section: chunk.sectionName || "Segment"
                 });
 
-                const sName = chunk.sectionName || "Document";
-                if (!sourceTracker.has(sName)) {
-                    sourceTracker.add(sName);
-                    sources.push(sName);
+                const sLabel = targetPaperIds.length > 1 ? `${paper.title}: ${chunk.sectionName || 'Document'}` : (chunk.sectionName || "Document");
+                if (!sourceTracker.has(sLabel)) {
+                    sourceTracker.add(sLabel);
+                    sources.push(sLabel);
                 }
             }
         }
     }
 
     if (hybridContext.length === 0) {
-      sendSSE({ chunk: "I am not confident enough to answer this based on the paper." });
+      sendSSE({ chunk: "I am not confident enough to answer this based on the paper context." });
       sendSSE({ final: true, confidenceScore: 0.0, confidenceLabel: "Low", sources: [] });
       return res.end();
     }
 
     // ── Answer Generation ────────────────────────────────────────────────────
-    const answer = await generateSummary(question, hybridContext, chatHistory, (chunk) => {
+    // If multi-paper, use generateComparison for better citation formatting
+    const genFunc = targetPaperIds.length > 1 ? generateSummary : generateSummary;
+    // Actually, generateSummary is already good enough if we label the blocks.
+    // Tweak context blocks to include title for the LLM
+    const contextForLLM = hybridContext.map(c => ({
+      ...c,
+      section: targetPaperIds.length > 1 ? `Paper: "${c.title}" | Section: ${c.section}` : c.section
+    }));
+
+    const answer = await generateSummary(question, contextForLLM, chatHistory, (chunk) => {
       sendSSE({ chunk });
     });
 

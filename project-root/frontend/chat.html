@@ -104,11 +104,29 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
-        const paperId = urlParams.get('paperId');
+        let paperId = urlParams.get('paperId');
+        let paperIds = [];
 
-        if (!paperId) {
-            alert('No paperId found in URL.');
-            window.location.href = 'upload.html';
+        // If paperId is in URL, we are in single-paper mode
+        if (paperId) {
+            localStorage.removeItem('selectedPapers'); // Clear any multi-selection
+        } else {
+            // Check for multi-paper selection from localStorage
+            const stored = localStorage.getItem('selectedPapers');
+            if (stored) {
+                paperIds = JSON.parse(stored);
+                if (paperIds.length > 1) {
+                    document.getElementById('headerPaperTitle').textContent = `Analyzing ${paperIds.length} Papers`;
+                    document.getElementById('chatInput').placeholder = "Ask a question across all selected papers...";
+                } else if (paperIds.length === 1) {
+                    paperId = paperIds[0];
+                }
+            }
+        }
+
+        if (!paperId && paperIds.length === 0) {
+            alert('No paper selection found. Please select papers from the library or comparison page.');
+            window.location.href = 'compare.html';
             return;
         }
 
@@ -150,7 +168,11 @@
                 const response = await fetch('/api/ask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ paperId, question })
+                    body: JSON.stringify({ 
+                        paperId: paperIds.length > 1 ? null : paperId, 
+                        paperIds: paperIds.length > 1 ? paperIds : null,
+                        question 
+                    })
                 });
 
                 if (!response.ok) {

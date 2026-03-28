@@ -274,6 +274,7 @@
     }
 
     startCompareBtn.onclick = () => {
+        localStorage.setItem('selectedPapers', JSON.stringify(selectedPapers));
         selectionSection.classList.add('hidden');
         compareInterface.classList.remove('hidden');
     };
