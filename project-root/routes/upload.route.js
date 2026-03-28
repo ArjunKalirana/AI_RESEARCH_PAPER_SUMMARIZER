@@ -33,27 +33,30 @@ const upload = multer({
   }
 });
 
-// Dedicated error handler for multer errors
-function multerErrorHandler(err, req, res, next) {
-  if (req.file && req.file.path) {
-    fs.unlink(req.file.path, () => {});
-  }
-
-  let message;
-  if (err.code === 'LIMIT_FILE_SIZE') {
-    message = 'File too large. Maximum size is 50 MB.';
-  } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-    message = 'Unexpected file field in request.';
-  } else if (err.message === 'Only PDF files are allowed!') {
-    message = err.message;
-  } else {
-    message = err.message || 'Upload failed before processing could begin.';
-  }
-
-  return res.status(400).json({ error: true, stage: 'upload', message });
+function multerMiddleware(req, res, next) {
+  upload.single('paper')(req, res, function(err) {
+    if (err) {
+      // Clean up any partial file
+      if (req.file && req.file.path) {
+        fs.unlink(req.file.path, () => {});
+      }
+      let message;
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        message = 'File too large. Maximum size is 50 MB.';
+      } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        message = 'Unexpected file field in request.';
+      } else if (err.message === 'Only PDF files are allowed!') {
+        message = err.message;
+      } else {
+        message = err.message || 'Upload failed before processing could begin.';
+      }
+      return res.status(400).json({ error: true, stage: 'upload', message });
+    }
+    next();
+  });
 }
 
-router.post('/upload', upload.single('paper'), uploadPaper, multerErrorHandler);
-router.post('/upload-stream', upload.single('paper'), uploadPaper, multerErrorHandler);
+router.post('/upload', multerMiddleware, uploadPaper);
+router.post('/upload-stream', multerMiddleware, uploadPaper);
 
 module.exports = router;
