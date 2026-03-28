@@ -47,7 +47,7 @@ async function searchQuery(query, index_id, k = 6) {
 /**
  * searchQueryReranked: calls /search-reranked directly.
  */
-async function searchQueryReranked(query, index_id, k = 5, fetch_k = 20) {
+async function searchQueryReranked(query, index_id, k = 5, fetch_k = 12) {
   console.log(`[FAISS] Requesting /search-reranked for index_id: ${index_id}`);
   const response = await axios.post(`${FAISS_URL}/search-reranked`, {
     index_id: index_id,
