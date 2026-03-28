@@ -16,21 +16,32 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Request Logger diagnostic
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 // Diagnostic: Check if frontend exists in the container
-const frontendPath = path.join(__dirname, 'frontend');
+const frontendPath = path.resolve(__dirname, 'frontend');
 if (fs.existsSync(frontendPath)) {
-    console.log("✅ Frontend folder found at:", frontendPath);
+    console.log("✅ Frontend folder found at (resolved):", frontendPath);
     console.log("📂 Content:", fs.readdirSync(frontendPath));
 } else {
-    console.error("❌ Frontend folder NOT found at:", frontendPath);
+    console.error("❌ Frontend folder NOT found at (resolved):", frontendPath);
 }
 
 // Serve frontend static files
 app.use(express.static(frontendPath));
 
-// Explicit Root Redirect
+// Explicit Root Handler
 app.get('/', (req, res) => {
-    res.redirect('/upload.html');
+    const indexPath = path.join(frontendPath, 'upload.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).send("upload.html NOT FOUND in " + frontendPath);
+    }
 });
 
 // Dummy Favicon handler to stop 404 logs
