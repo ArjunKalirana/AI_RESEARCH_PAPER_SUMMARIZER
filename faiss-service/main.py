@@ -17,6 +17,53 @@ app = FastAPI()
 DIMENSION = 384
 os.makedirs("index_store", exist_ok=True)
 
+# ── 1. In-Memory Cache ────────────────────────────────────────────────────────
+class IndexCache:
+    def __init__(self, max_size=15):
+        self.indices = {} # paper_id -> faiss_index
+        self.chunks = {}  # paper_id -> list of chunk dicts
+        self.order = []   # LRU tracking
+        self.max_size = max_size
+
+    def get(self, index_id):
+        if index_id in self.indices:
+            # Move to back (most recently used)
+            if index_id in self.order:
+                self.order.remove(index_id)
+            self.order.append(index_id)
+            return self.indices[index_id], self.chunks[index_id]
+        
+        # Load from disk
+        index_path = f"index_store/{index_id}.index"
+        chunks_path = f"index_store/{index_id}.chunks.json"
+        
+        if os.path.exists(index_path) and os.path.exists(chunks_path):
+            try:
+                print(f"📁 Cache Miss. Loading {index_id} from disk...")
+                index = faiss.read_index(index_path)
+                with open(chunks_path, "r") as f:
+                    chunks = json.load(f)
+                
+                self._add(index_id, index, chunks)
+                return index, chunks
+            except Exception as e:
+                print(f"❌ Failed to load {index_id} from disk: {e}")
+                return None, None
+        return None, None
+
+    def _add(self, index_id, index, chunks):
+        if len(self.order) >= self.max_size:
+            oldest = self.order.pop(0)
+            if oldest in self.indices: del self.indices[oldest]
+            if oldest in self.chunks: del self.chunks[oldest]
+            print(f"🧹 Evicted {oldest} from cache.")
+        
+        self.indices[index_id] = index
+        self.chunks[index_id] = chunks
+        self.order.append(index_id)
+
+index_cache = IndexCache(max_size=15)
+
 # Bi-encoder: fast embedding model for FAISS retrieval
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -59,6 +106,18 @@ class RerankSearchInput(BaseModel):
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
+@app.get("/health")
+def health_check():
+    indices = []
+    if os.path.exists("index_store"):
+        indices = [f.replace(".index", "") for f in os.listdir("index_store") if f.endswith(".index")]
+    return {
+        "status": "ok",
+        "loaded_indices": indices,
+        "total_loaded": len(indices)
+    }
+
+@app.post("/rebuild-index")
 @app.post("/index")
 def build_index(data: IndexInput):
     os.makedirs("index_store", exist_ok=True)
@@ -97,10 +156,10 @@ def build_index(data: IndexInput):
 
 @app.post("/search")
 def search_text(data: SearchInput):
-    index_path = f"index_store/{data.index_id}.index"
-    if not os.path.exists(index_path):
+    index, _ = index_cache.get(data.index_id)
+    if not index:
         return {"distances": [], "indices": []}
-    index = faiss.read_index(index_path)
+
     query_embedding = model.encode([data.query])
     query_embedding = np.array(query_embedding).astype("float32")
     faiss.normalize_L2(query_embedding)
@@ -116,20 +175,10 @@ def search_reranked(data: RerankSearchInput):
     if reranker is None:
         return {"error": "reranker_unavailable", "results": []}
 
-    # ── 1. Load FAISS index ───────────────────────────────────────────────────
-    index_path = f"index_store/{data.index_id}.index"
-    if not os.path.exists(index_path):
+    # ── 1. Use Cache ──────────────────────────────────────────────────────────
+    index, chunks_store = index_cache.get(data.index_id)
+    if not index or not chunks_store:
         return {"results": []}
-
-    index = faiss.read_index(index_path)
-
-    # ── 2. Load chunk texts ───────────────────────────────────────────────────
-    chunks_path = f"index_store/{data.index_id}.chunks.json"
-    if not os.path.exists(chunks_path):
-        return {"error": "chunks_store_missing", "results": []}
-
-    with open(chunks_path, "r") as f:
-        chunks_store = json.load(f)
 
     row_to_text = {entry["row"]: entry["text"] for entry in chunks_store}
     row_to_chunk_index = {entry["row"]: entry["chunkIndex"] for entry in chunks_store}
