@@ -2,16 +2,16 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Ensure we have build tools for dependencies like FAISS
+# Combine system dependencies and pip install to reduce image layers
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
-# Install dependencies, ensuring uvicorn is installed to serve the FastAPI app
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir uvicorn
+# Install CPU-specific PyTorch and other dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
 

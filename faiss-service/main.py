@@ -200,3 +200,8 @@ def compute_similarity(data: SentencePair):
     faiss.normalize_L2(emb2)
     similarity = np.dot(emb1[0], emb2[0])
     return {"similarity": float(similarity)}
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)

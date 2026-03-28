@@ -1,16 +1,22 @@
 const neo4j = require("neo4j-driver");
 
 const NEO4J_URL = process.env.NEO4J_URL || "bolt://localhost:7687";
+const NEO4J_USER = process.env.NEO4J_USER || "neo4j";
+const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || "HelloWorld@4321";
+
 console.log(`🔌 Initializing Neo4j Driver with URL: ${NEO4J_URL}`);
+
+// Secured URLs (neo4j+s) manage encryption/trust automatically.
+// Including them in the config causes a conflict.
+const driverConfig = { disableLosslessIntegers: true };
+if (!NEO4J_URL.includes("+s")) {
+  driverConfig.encrypted = "ENCRYPTION_OFF";
+}
 
 const driver = neo4j.driver(
   NEO4J_URL,
-  neo4j.auth.basic("neo4j", "HelloWorld@4321"),
-  {
-    encrypted: "ENCRYPTION_OFF",
-    trust: "TRUST_ALL_CERTIFICATES",
-    disableLosslessIntegers: true
-  }
+  neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD),
+  driverConfig
 );
 
 async function runQuery(query, params = {}, retryCount = 3) {

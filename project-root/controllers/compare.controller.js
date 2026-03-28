@@ -39,9 +39,18 @@ async function compareQuestion(req, res) {
         // 1. Rewrite Query (standalone)
         const refinedQuery = await rewriteQuery(question, []); // No history for comparison mode
 
-        // 2. Parallel Search across all indices
-        const searchPromises = paperIds.map(id => searchQuery(refinedQuery, id, 5));
-        const searchResults = await Promise.all(searchPromises);
+        // 2. Parallel Search across all indices (Resilient)
+        const searchResults = await Promise.all(
+            paperIds.map(async (id) => {
+                try {
+                    return await searchQuery(refinedQuery, id, 5);
+                } catch (e) {
+                    console.error(`⚠️ Search failed for paper ${id}:`, e.message);
+                    sendSSE({ warning: `Paper ID ${id.slice(0, 8)}... could not be searched (index missing or service down). Skipping.` });
+                    return null; 
+                }
+            })
+        );
 
         // 3. Resolve context and metadata
         const labeledContext = [];
@@ -54,6 +63,8 @@ async function compareQuestion(req, res) {
             const paperId = paperIds[i];
             const label = labels[i];
             const result = searchResults[i];
+
+            if (!result) continue; // Skip failed search
 
             // Fetch Title/Year from Neo4j (for mapping)
             const neoRes = await runQuery(
@@ -76,7 +87,8 @@ async function compareQuestion(req, res) {
                             paperTitle: title,
                             paperLabel: label,
                             chunkText: chunk.text,
-                            section: chunk.sectionName || "Context"
+                            section: chunk.sectionName || "Context",
+                            score: chunk.score || 0
                         });
                         sources.push({ label, section: chunk.sectionName || "Context" });
                     }
@@ -87,15 +99,16 @@ async function compareQuestion(req, res) {
                     
                     for (let j = 0; j < allIndices.length; j++) {
                         const idx = allIndices[j];
-                        const sim = allDistances[j];
+                        const dist = allDistances[j];
                         const chunk = paperData.chunks[idx];
-                        if (chunk && sim >= 0.25) {
+                        if (chunk && dist >= 0.25) {
                             labeledContext.push({
                                 paperId,
                                 paperTitle: title,
                                 paperLabel: label,
                                 chunkText: chunk.chunkText,
-                                section: chunk.sectionName || "Context"
+                                section: chunk.sectionName || "Context",
+                                score: dist // Distance as score
                             });
                             sources.push({ label, section: chunk.sectionName || "Context" });
                         }
@@ -104,14 +117,34 @@ async function compareQuestion(req, res) {
             }
         }
 
-        if (labeledContext.length === 0) {
+        // --- SMART TRUNCATION (3000 Words Limit) ---
+        // 1. Sort by similarity score across all papers
+        labeledContext.sort((a, b) => b.score - a.score);
+
+        // 2. Greedy selection to stay within word budget
+        let totalWords = 0;
+        const truncatedContext = [];
+        const MAX_WORDS = 3000;
+
+        for (const ctx of labeledContext) {
+            const wordCount = ctx.chunkText.split(/\s+/).length;
+            if (totalWords + wordCount <= MAX_WORDS) {
+                truncatedContext.push(ctx);
+                totalWords += wordCount;
+            } else {
+                console.log(`✂️ Truncating context. Limit reached at ${totalWords} words.`);
+                break;
+            }
+        }
+
+        if (truncatedContext.length === 0) {
             sendSSE({ chunk: "I couldn't find enough relevant information across these papers to make a comparison." });
             sendSSE({ final: true, sources: [], paperLabels: {} });
             return res.end();
         }
 
         // 4. Generate Comparison with Streaming
-        const answer = await generateComparison(question, labeledContext, (chunk) => {
+        const answer = await generateComparison(question, truncatedContext, (chunk) => {
             sendSSE({ chunk });
         });
 
