@@ -338,8 +338,13 @@ RULES:
   }
 }
 
-async function generateLiteratureReview(contextStr, streamCallback) {
+async function generateLiteratureReview(contextParts, streamCallback) {
   console.log("🧠 [Groq] Generating automated literature review...");
+  
+  const contextText = contextParts.map((p, i) =>
+    `[Paper ${i + 1}] "${p.title}" (${p.year || 'n.d.'}) by ${(p.authors || []).slice(0, 2).join(', ')}:\nAbstract/Summary: ${p.summary || ''}\nKey Findings: ${p.conclusion || ''}`
+  ).join('\n\n---\n\n');
+
   const messages = [
     {
       role: "system",
@@ -362,7 +367,7 @@ RULES:
     },
     {
       role: "user",
-      content: `Context from papers:\n\n${contextStr}`
+      content: `Context from papers:\n\n${contextText}`
     }
   ];
 
