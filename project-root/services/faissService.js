@@ -88,7 +88,7 @@ async function rebuildIndicesFromDisk() {
     return;
   }
 
-  const files = fs.readdirSync(PROCESSED_DIR).filter(f => f.endswith('.json'));
+  const files = fs.readdirSync(PROCESSED_DIR).filter(f => f.endsWith('.json'));
   console.log(`📂 [FAISS-Rebuild] Found ${files.length} papers to re-index.`);
 
   for (const file of files) {

@@ -184,8 +184,8 @@ async function askQuestion(req, res) {
       generateFollowUpSuggestions(question, answer, paperTitle)
     ]);
 
-    await addMessageToHistory(paperId, "user", question);
-    await addMessageToHistory(paperId, "assistant", answer);
+    await addMessageToHistory(sessionId, "user", question);
+    await addMessageToHistory(sessionId, "assistant", answer);
 
     const finalScore = parseFloat((0.4 * parseFloat(faithfulnessRes.groundingScore) + 0.6 * parseFloat(retrievalRes.precision)).toFixed(2));
 
