@@ -69,4 +69,33 @@ async function deletePaper(req, res) {
   }
 }
 
-module.exports = { getLibrary, deletePaper };
+async function reindexPaper(req, res) {
+  const { paperId } = req.params;
+  const jsonPath = path.join(DATA_DIR, `${paperId}.json`);
+  
+  if (!fs.existsSync(jsonPath)) {
+    return res.status(404).json({ 
+      error: 'Paper data not found on disk. Please re-upload the original PDF.',
+      needsReupload: true 
+    });
+  }
+  
+  try {
+    const paper = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    if (!paper.chunks || paper.chunks.length === 0) {
+      return res.status(400).json({ error: 'Paper has no chunks to index.' });
+    }
+    
+    await axios.post(`${FAISS_URL}/index`, {
+      index_id: paperId,
+      chunks: paper.chunks
+    }, { timeout: 30000 });
+    
+    res.json({ success: true, message: `Re-indexed ${paper.chunks.length} chunks for "${paper.title}"` });
+  } catch (err) {
+    console.error('[Reindex] Error:', err.message);
+    res.status(500).json({ error: 'FAISS re-indexing failed: ' + err.message });
+  }
+}
+
+module.exports = { getLibrary, deletePaper, reindexPaper };

@@ -433,9 +433,15 @@
                                 <span class="material-symbols-outlined">chat</span>
                                 Read & Chat
                             </a>
-                            <button class="btn-delete" onclick="deletePaper('${paper.paperId}')" title="Delete Paper">
-                                <span class="material-symbols-outlined">delete</span>
-                            </button>
+                            <div style="display: flex; gap: 0.5rem;">
+                                ${paper.hasLocalData ? `
+                                <button class="btn-delete" style="color:var(--accent)" onclick="reindexPaper('${paper.paperId}', this)" title="Re-index paper chunks into FAISS">
+                                    <span class="material-symbols-outlined">bolt</span>
+                                </button>` : ''}
+                                <button class="btn-delete" onclick="deletePaper('${paper.paperId}')" title="Delete Paper">
+                                    <span class="material-symbols-outlined">delete</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -463,6 +469,33 @@
             const paperIds = Array.from(selectedPapers).join(',');
             window.location.href = `compare.html?paperIds=${paperIds}`;
         });
+
+        async function reindexPaper(paperId, btn) {
+          btn.disabled = true;
+          const originalHtml = btn.innerHTML;
+          btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite">progress_activity</span>';
+          
+          try {
+            const res = await fetch(`/api/library/${paperId}/reindex`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+              showToast(data.message, 'success');
+              btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span>';
+              btn.style.color = '#22c55e';
+              
+              // Refresh library to update status badges
+              setTimeout(fetchLibrary, 1500);
+            } else {
+              showToast(data.error, 'error');
+              btn.disabled = false;
+              btn.innerHTML = originalHtml;
+            }
+          } catch (e) {
+            showToast('Re-index failed', 'error');
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+          }
+        }
 
         async function deletePaper(paperId) {
             if (!confirm('Are you sure you want to delete this paper? All data will be lost.')) return;
