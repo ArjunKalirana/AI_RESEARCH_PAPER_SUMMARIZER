@@ -1,4 +1,11 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
+
+// Validate critical env vars on startup
+const REQUIRED_ENV = ['GROQ_API_KEY', 'NEO4J_URL', 'NEO4J_PASSWORD', 'FAISS_URL'];
+const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missing.length > 0) {
+  console.warn(`⚠️  Missing environment variables: ${missing.join(', ')} — some features may not work correctly.`);
+}
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -52,30 +59,41 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // ── Health Check (Railway monitoring) ───────────────────────────────────────
 app.get('/health', async (req, res) => {
-  const checks = { status: 'ok', timestamp: new Date().toISOString(), services: {} };
+  // Always return 200 — Railway healthcheck only needs to know Node.js is alive.
+  // Service connectivity is informational only, not a reason to kill the container.
+  const checks = { 
+    status: 'ok', 
+    timestamp: new Date().toISOString(), 
+    uptime: Math.floor(process.uptime()) + 's',
+    services: {} 
+  };
 
-  // Check Neo4j
+  // Check Neo4j — non-blocking, don't fail health if it's slow
   try {
     const { runQuery } = require('./services/neo4j.service');
-    await runQuery('RETURN 1');
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('timeout')), 2000)
+    );
+    await Promise.race([runQuery('RETURN 1'), timeoutPromise]);
     checks.services.neo4j = 'connected';
   } catch (e) {
-    checks.services.neo4j = 'error: ' + e.message;
-    checks.status = 'degraded';
+    checks.services.neo4j = 'degraded: ' + e.message;
+    checks.status = 'degraded'; // informational only — still returns 200
   }
 
-  // Check FAISS
+  // Check FAISS — non-blocking
   try {
     const axios = require('axios');
     const FAISS_URL = process.env.FAISS_URL || 'http://localhost:8001';
-    await axios.get(`${FAISS_URL}/health`, { timeout: 3000 });
+    await axios.get(`${FAISS_URL}/health`, { timeout: 2000 });
     checks.services.faiss = 'connected';
   } catch (e) {
-    checks.services.faiss = 'error: ' + e.message;
+    checks.services.faiss = 'degraded: ' + e.message;
     checks.status = 'degraded';
   }
 
-  res.status(checks.status === 'ok' ? 200 : 503).json(checks);
+  // ALWAYS return 200 — Railway needs this for stability
+  res.status(200).json(checks);
 });
 
 // API Routes

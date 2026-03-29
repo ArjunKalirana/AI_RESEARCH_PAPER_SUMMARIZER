@@ -277,6 +277,16 @@ def compute_similarity(data: SentencePair):
     similarity = np.dot(emb1[0], emb2[0])
     return {"similarity": float(similarity)}
 
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok",
+        "model": "all-MiniLM-L6-v2",
+        "reranker_available": reranker is not None,
+        "indices_loaded": len([f for f in os.listdir("index_store") if f.endswith(".index")]) 
+                         if os.path.exists("index_store") else 0
+    }
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8001))
