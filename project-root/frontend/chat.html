@@ -62,7 +62,16 @@
 <span class="material-symbols-outlined text-[14px]">description</span>
 <span id="headerPaperTitle" class="max-w-[200px] truncate">Paper Analysis Active</span>
 </div>
-<div class="h-8 w-8 rounded-full bg-slate-100 overflow-hidden border border-slate-200 cursor-pointer">
+        <button id="saveChatBtn" title="Save conversation" 
+          style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+                 color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;
+                 padding:6px 14px;cursor:pointer;transition:all 0.2s;"
+          onmouseover="this.style.borderColor='#1e68f1';this.style.color='#1e68f1'"
+          onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#64748b'">
+          <span class="material-symbols-outlined" style="font-size:16px">download</span>
+          Save Chat
+        </button>
+        <div class="h-8 w-8 rounded-full bg-slate-100 overflow-hidden border border-slate-200 cursor-pointer">
 <img alt="User" class="h-full w-full object-cover" src="https://ui-avatars.com/api/?name=Research+User&background=1e68f1&color=fff"/>
 </div>
 </div>
@@ -100,7 +109,7 @@
 <span class="material-symbols-outlined text-lg">send</span>
 </button>
 </div>
-<p class="mt-3 text-center text-[10px] text-slate-400 font-medium uppercase tracking-widest">Research Assistant Powered by Llama 3 &nbsp;·&nbsp; <span class="opacity-60">⌘K focus &middot; ⌘↵ send &middot; Esc clear</span></p>
+<p class="mt-3 text-center text-[10px] text-slate-400 font-medium uppercase tracking-widest">Research Assistant Powered by Llama 3 &nbsp;·&nbsp; <span class="opacity-60">⌘K focus &middot; ⌘↵ send &middot; ⌘S save &middot; Esc clear</span></p>
 </div>
 </div>
 </main>
@@ -148,6 +157,7 @@
 
         chatInput.onkeypress = (e) => { if (e.key === 'Enter') handleSend(); };
         sendBtn.onclick = handleSend;
+        document.getElementById('saveChatBtn')?.addEventListener('click', saveChatAsMarkdown);
 
         async function handleSend() {
             const question = chatInput.value.trim();
@@ -396,30 +406,93 @@
                 .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
                 .replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
         }
-    });
 
-    // ── Upgrade #9: Keyboard Shortcuts ──────────────────────────────────────
-    document.addEventListener('keydown', (e) => {
-        const input = document.getElementById('chatInput');
-        const sendBtn = document.getElementById('sendBtn');
+        function saveChatAsMarkdown() {
+          const paperTitle = document.getElementById('headerPaperTitle')?.textContent || 'Research Paper';
+          const timestamp = new Date().toLocaleString('en-US', { 
+            year: 'numeric', month: 'long', day: 'numeric', 
+            hour: '2-digit', minute: '2-digit' 
+          });
+          
+          let md = `# Research Chat Export\n`;
+          md += `**Paper:** ${paperTitle}\n`;
+          md += `**Exported:** ${timestamp}\n\n`;
+          md += `---\n\n`;
 
-        // ⌘/Ctrl + Enter → send (works even when input isn't focused)
-        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-            e.preventDefault();
-            sendBtn?.click();
+          // Scrape all messages from the DOM
+          const chatContainer = document.getElementById('chatContainer');
+          const messageBlocks = chatContainer.querySelectorAll('.space-y-4, .flex.flex-col.items-end');
+          
+          messageBlocks.forEach(block => {
+            const isUser = block.classList.contains('items-end');
+            if (isUser) {
+              const text = block.querySelector('div > div')?.innerText || '';
+              if (text) md += `**You:** ${text}\n\n`;
+            } else {
+              const body = block.querySelector('.message-body');
+              if (body) {
+                // Get text content, preserve structure
+                const text = body.innerText
+                  .replace(/📍.*$/gm, '') // Remove source tags line
+                  .replace(/✓.*?Confidence|~.*?Confidence|⚠.*?Confidence/g, '') // Remove confidence pills
+                  .trim();
+                const confPill = block.querySelector('.conf-pill');
+                const confLabel = confPill ? ` _(${confPill.innerText.trim()})_` : '';
+                if (text) md += `**Assistant:**${confLabel}\n\n${text}\n\n`;
+                
+                // Add sources if present
+                const sourceTags = block.querySelectorAll('[style*="background:#f1f5f9"]');
+                if (sourceTags.length > 0) {
+                  const sources = Array.from(sourceTags).map(t => t.innerText.replace('📍', '').trim());
+                  md += `> 📍 Sources: ${sources.join(', ')}\n\n`;
+                }
+                
+                md += `---\n\n`;
+              }
+            }
+          });
+
+          // Download as .md file
+          const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `chat-${paperTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 40)}-${Date.now()}.md`;
+          a.click();
+          URL.revokeObjectURL(url);
+          
+          showToast('Chat saved as Markdown file!', 'success');
         }
 
-        // ⌘/Ctrl + K → focus input
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-            e.preventDefault();
-            input?.focus();
-            input?.select();
-        }
+        // ── Upgrade #9: Keyboard Shortcuts ──────────────────────────────────
+        document.addEventListener('keydown', (e) => {
+            const input = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
 
-        // Escape → clear input if focused
-        if (e.key === 'Escape' && input && document.activeElement === input) {
-            input.value = '';
-        }
+            // ⌘/Ctrl + S → Save chat
+            if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+                e.preventDefault();
+                saveChatAsMarkdown();
+            }
+
+            // ⌘/Ctrl + Enter → send (works even when input isn't focused)
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                sendBtn?.click();
+            }
+
+            // ⌘/Ctrl + K → focus input
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                input?.focus();
+                input?.select();
+            }
+
+            // Escape → clear input if focused
+            if (e.key === 'Escape' && input && document.activeElement === input) {
+                input.value = '';
+            }
+        });
     });
 </script>
 </body></html>
