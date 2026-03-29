@@ -4,7 +4,7 @@ const axios = require('axios');
 const { runQuery } = require('../services/neo4j.service');
 
 const DATA_DIR = path.join(__dirname, '../data/processed_papers');
-const FAISS_URL = process.env.FAISS_URL || "http://localhost:8000";
+const FAISS_URL = process.env.FAISS_URL || "http://localhost:8001";
 
 async function getLibrary(req, res) {
   try {

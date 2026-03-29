@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { generateLiteratureReview } = require('../services/llmService');
 
-const OUTPUT_DIR = path.join(process.cwd(), 'output');
+const OUTPUT_DIR = path.join(__dirname, '../data/processed_papers');
 
 exports.generateLitReview = async (req, res) => {
     try {
