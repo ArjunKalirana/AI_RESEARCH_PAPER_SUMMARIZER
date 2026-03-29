@@ -18,12 +18,20 @@ async function getLibrary(req, res) {
       ORDER BY p.title
     `;
     const result = await runQuery(query);
-    const papers = result.records.map(record => ({
-      paperId: record.get('paperId'),
-      title: record.get('title'),
-      year: record.get('year'),
-      authors: record.get('authors')
-    }));
+    const papers = result.records.map(record => {
+      const paperId = record.get('paperId');
+      const jsonPath = path.join(DATA_DIR, `${paperId}.json`);
+      const hasLocalData = fs.existsSync(jsonPath);
+      
+      return {
+        paperId,
+        title: record.get('title'),
+        year: record.get('year'),
+        authors: record.get('authors'),
+        hasLocalData,
+        status: hasLocalData ? 'ready' : 'needs_reindex'
+      };
+    });
     res.json(papers);
   } catch (error) {
     console.error('[Library] Error fetching papers:', error);

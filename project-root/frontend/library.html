@@ -146,6 +146,27 @@
             font-weight: 700;
         }
 
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .status-ready {
+            background: rgba(35, 134, 54, 0.1);
+            color: var(--success);
+        }
+
+        .status-needs-reindex {
+            background: rgba(218, 54, 51, 0.1);
+            color: #d29922; /* amber-like color */
+        }
+
         .paper-title {
             font-size: 1.1rem;
             font-weight: 700;
@@ -154,6 +175,7 @@
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
+            line-clamp: 2;
             overflow: hidden;
             color: #fff;
         }
@@ -387,15 +409,22 @@
             }
 
             libraryGrid.innerHTML = papers.map(paper => {
-                const authors = paper.authors.length > 3 
+                const authors = (paper.authors || []).length > 3 
                     ? paper.authors.slice(0, 3).join(', ') + ' et al.'
-                    : paper.authors.join(', ');
+                    : (paper.authors || []).join(', ');
+
+                const statusBadge = paper.status === 'ready' 
+                    ? `<span class="status-badge status-ready"><span class="material-symbols-outlined" style="font-size: 14px">check_circle</span> Ready</span>`
+                    : `<span class="status-badge status-needs-reindex"><span class="material-symbols-outlined" style="font-size: 14px">warning</span> Re-upload needed</span>`;
 
                 return `
                     <div class="paper-card" id="card-${paper.paperId}">
                         <div class="card-header">
                             <input type="checkbox" class="select-checkbox" data-id="${paper.paperId}" onchange="toggleSelection(this)">
-                            <span class="year-badge">${paper.year || 'N/A'}</span>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                ${statusBadge}
+                                <span class="year-badge">${paper.year || 'N/A'}</span>
+                            </div>
                         </div>
                         <h3 class="paper-title">${paper.title}</h3>
                         <p class="paper-authors">${authors}</p>

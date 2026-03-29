@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <script src="js/toast.js"></script>
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -41,6 +42,16 @@
 
         .prose pre { @apply bg-slate-900 text-slate-100 p-4 rounded-xl border border-slate-800; }
         .prose code { @apply bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-primary font-bold; }
+
+        .status-badge {
+            @apply inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md;
+        }
+        .status-ready {
+            @apply bg-green-100/50 text-green-600 dark:bg-green-500/10 dark:text-green-400;
+        }
+        .status-needs-reindex {
+            @apply bg-amber-100/50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400;
+        }
     </style>
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
@@ -223,15 +234,23 @@
                 const card = document.createElement('div');
                 card.className = 'paper-card bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-md transition-all group';
                 card.dataset.id = paper.paperId;
+                
+                const statusBadge = paper.status === 'ready' 
+                    ? `<span class="status-badge status-ready"><span class="material-symbols-outlined text-[12px]">check_circle</span> Ready</span>`
+                    : `<span class="status-badge status-needs-reindex"><span class="material-symbols-outlined text-[12px]">warning</span> Re-upload needed</span>`;
+
                 card.innerHTML = `
                     <div class="flex items-start gap-3">
                         <div class="mt-1 w-5 h-5 rounded border border-slate-200 dark:border-slate-700 flex items-center justify-center text-white group-hover:border-primary transition-colors checkbox-indicator">
                             <span class="material-symbols-outlined text-xs hidden">check</span>
                         </div>
-                        <div>
-                            <h3 class="font-bold text-sm leading-tight mb-1 group-hover:text-primary transition-colors">${paper.title}</h3>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between mb-2">
+                                ${statusBadge}
+                                <div class="text-[10px] font-bold text-slate-400">${paper.year || 'N/A'}</div>
+                            </div>
+                            <h3 class="font-bold text-sm leading-tight mb-1 group-hover:text-primary transition-colors truncate">${paper.title}</h3>
                             <p class="text-[10px] text-slate-400 font-medium uppercase truncate w-full">${(paper.authors || []).join(', ') || 'N/A'}</p>
-                            <div class="mt-2 text-[10px] font-bold text-slate-400">${paper.year}</div>
                         </div>
                     </div>
                 `;
@@ -240,18 +259,26 @@
                 paperGrid.appendChild(card);
             });
 
-            // Pre-select papers passed from library.html via URL
+            // Auto-select papers passed from library.html
             const urlParams = new URLSearchParams(window.location.search);
-            const preSelected = urlParams.get('paperIds');
-            if (preSelected) {
-                const ids = preSelected.split(',').filter(Boolean);
-                ids.forEach(id => {
+            const preSelectedIds = (urlParams.get('paperIds') || '').split(',').filter(Boolean);
+            
+            if (preSelectedIds.length > 0) {
+                preSelectedIds.forEach(id => {
                     const card = document.querySelector(`[data-id="${id}"]`);
-                    if (card) {
-                        // Simulate a click/selection on the card
+                    if (card && !selectedPapers.includes(id)) {
                         toggleSelection(id, card);
                     }
                 });
+                
+                if (preSelectedIds.length >= 2) {
+                    // Scroll to the selection confirmation button smoothly
+                    setTimeout(() => {
+                        startCompareBtn?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                    
+                    showToast(`${preSelectedIds.length} papers pre-selected from your library. Click the button below to start comparing!`, 'info', 4000);
+                }
             }
 
         } catch (e) {
