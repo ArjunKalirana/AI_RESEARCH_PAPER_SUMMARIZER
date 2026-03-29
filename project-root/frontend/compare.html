@@ -372,7 +372,19 @@
                             const data = JSON.parse(line.slice(6));
                             
                             if (data.warning) {
-                                streamingAnswer.insertAdjacentHTML('afterbegin', `<div class="mb-4 p-2 bg-amber-50 text-amber-700 rounded-lg text-[10px] font-bold border border-amber-200 flex items-center gap-2"><span class="material-symbols-outlined text-sm">warning</span> ${data.warning}</div>`);
+                                const warningBanner = document.createElement('div');
+                                warningBanner.style.cssText = `
+                                  background:#fffbeb;border:1px solid #fef3c7;color:#92400e;
+                                  border-radius:12px;padding:12px 16px;font-size:12px;font-weight:600;
+                                  margin-bottom:12px;display:flex;align-items:center;gap:10px;
+                                  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                                `;
+                                warningBanner.innerHTML = `
+                                  <span class="material-symbols-outlined" style="font-size:18px;color:#d97706">warning</span>
+                                  <div style="flex:1;">${data.warning}</div>
+                                  <span style="font-[10px];background:#fef3c7;padding:2px 8px;border-radius:20px;color:#b45309;white-space:nowrap;">Re-index Needed</span>
+                                `;
+                                streamingAnswer.parentElement?.insertBefore(warningBanner, streamingAnswer);
                             }
 
                             if (data.chunk) {
@@ -386,6 +398,17 @@
                                 renderLegend(data.paperLabels);
                                 renderSources(data.sources);
                                 if (data.suggestions) renderSuggestions(data.suggestions);
+
+                                if (data.paperLabels) {
+                                    const labelsUsed = Object.entries(data.paperLabels)
+                                        .map(([label, title]) => `<span style="color:#475569;font-weight:700;">${label}:</span> "${title}"`)
+                                        .join(' &nbsp;·&nbsp; ');
+                                    streamingAnswer.insertAdjacentHTML('beforeend', 
+                                        `<div style="font-size:11px;color:#94a3b8;margin-top:20px;padding-top:16px;border-top:1px solid #f1f5f9;line-height:1.6;">
+                                            <div style="text-transform:uppercase;letter-spacing:0.1em;font-weight:900;margin-bottom:4px;font-size:9px;">Scope of Comparison</div>
+                                            ${labelsUsed}
+                                        </div>`);
+                                }
                             }
 
                             if (data.error) {

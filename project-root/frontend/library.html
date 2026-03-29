@@ -336,6 +336,15 @@
         <div class="action-bar">
             <h2>Paper Library</h2>
             <div style="display: flex; gap: 1rem;">
+                <button id="askAllBtn" onclick="askAllPapers()"
+                  style="display:flex;align-items:center;gap:8px;background:#1e68f1;color:#fff;
+                         border:none;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:600;
+                         cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(30,104,241,0.3);"
+                  onmouseover="this.style.background='#1652c5';this.style.transform='translateY(-1px)'"
+                  onmouseout="this.style.background='#1e68f1';this.style.transform='translateY(0)'">
+                  <span class="material-symbols-outlined" style="font-size:16px">forum</span>
+                  Ask Across All Papers
+                </button>
                 <button id="litReviewBtn" class="compare-btn" style="background-color: var(--success);" title="Auto-generate a literature review from selected papers (Min 2)">
                     <span class="material-symbols-outlined">auto_stories</span>
                     Generate Lit Review
@@ -345,6 +354,20 @@
                     Compare Selected (<span id="selectedCount">0</span>)
                 </button>
             </div>
+        </div>
+
+        <!-- Search Filter -->
+        <div style="position:relative;max-width:400px;margin-bottom:20px;">
+          <span class="material-symbols-outlined" 
+            style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:18px;">
+            search
+          </span>
+          <input id="librarySearch" type="text" placeholder="Search papers by title or author..."
+            style="width:100%;padding:10px 12px 10px 40px;border:1px solid #e2e8f0;border-radius:12px;
+                   background:#fcfdfe;font-size:14px;color:#334155;outline:none;transition:all 0.2s;"
+            onfocus="this.style.borderColor='#1e68f1';this.style.boxShadow='0 0 0 3px rgba(30,104,241,0.05)'"
+            onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'"
+            oninput="filterLibrary(this.value)">
         </div>
 
         <div class="library-grid" id="libraryGrid">
@@ -469,6 +492,42 @@
             const paperIds = Array.from(selectedPapers).join(',');
             window.location.href = `compare.html?paperIds=${paperIds}`;
         });
+
+        function filterLibrary(query) {
+          const q = query.toLowerCase().trim();
+          const cards = document.querySelectorAll('.paper-card');
+          let visibleCount = 0;
+          
+          cards.forEach(card => {
+            const title = (card.querySelector('.paper-title')?.textContent || '').toLowerCase();
+            const authors = (card.querySelector('.paper-authors')?.textContent || '').toLowerCase();
+            const matches = !q || title.includes(q) || authors.includes(q);
+            card.style.display = matches ? '' : 'none';
+            if (matches) visibleCount++;
+          });
+          
+          // Show "no results" message
+          let noResults = document.getElementById('no-results-msg');
+          if (!noResults) {
+            noResults = document.createElement('div');
+            noResults.id = 'no-results-msg';
+            noResults.style.cssText = 'text-align:center;color:#94a3b8;padding:40px;grid-column:1/-1;';
+            noResults.textContent = 'No papers match your search.';
+            document.getElementById('libraryGrid')?.appendChild(noResults);
+          }
+          noResults.style.display = visibleCount === 0 && q ? 'block' : 'none';
+        }
+
+        function askAllPapers() {
+          const allCards = document.querySelectorAll('[data-id]');
+          if (allCards.length === 0) {
+            showToast('No papers in library yet. Upload some papers first!', 'warning');
+            return;
+          }
+          const allIds = Array.from(allCards).map(c => c.dataset.id).filter(Boolean);
+          localStorage.setItem('selectedPapers', JSON.stringify(allIds));
+          window.location.href = `chat.html`;
+        }
 
         async function reindexPaper(paperId, btn) {
           btn.disabled = true;

@@ -248,6 +248,12 @@
         </button>
     </div>
 </div>
+
+<!-- Modern Stats Bar -->
+<div id="statsBar" style="display:none;gap:16px;flex-wrap:wrap;margin:16px 0 24px;padding:20px;
+     background:linear-gradient(135deg,#f8faff,#f0f4ff);border-radius:16px;border:1px solid #e0e7ff;box-shadow:0 4px 12px rgba(30,104,241,0.03);">
+  <!-- Filled by JS -->
+</div>
 </div>
 
 <!-- Paper Stats Dashboard -->
@@ -458,13 +464,19 @@ Section-by-Section Analysis
         setTimeout(() => toast.classList.remove('show'), 2000);
     }
 
+    function toggleSection(id) {
+        const panel = document.getElementById(id);
+        const idx = id.replace('acc-', '');
+        const chevron = document.getElementById(`chevron-${idx}`);
+        const isOpen = panel.style.maxHeight !== '0px' && panel.style.maxHeight !== '';
+        
+        panel.style.maxHeight = isOpen ? '0' : '1000px';
+        panel.style.padding = isOpen ? '0 24px' : '20px 24px';
+        chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
+
     function toggleAccordion(id) {
-        const body = document.getElementById(id);
-        const icon = document.getElementById(id + '-icon');
-        if (!body) return;
-        const isOpen = body.style.maxHeight !== '0px' && body.style.maxHeight !== '';
-        body.style.maxHeight = isOpen ? '0' : '2000px';
-        if (icon) icon.style.transform = isOpen ? '' : 'rotate(180deg)';
+        toggleSection(id);
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -522,6 +534,26 @@ Section-by-Section Analysis
             rawSummaryData = data.summary || "Summary generation pending...";
             document.getElementById('paperSummary').innerHTML = marked.parse(rawSummaryData);
 
+            // --- Modern Stats Bar Injection ---
+            const statItems = [
+                { icon: '🧩', value: Object.keys(data.sections || {}).length, label: 'Sections' },
+                { icon: '✍️', value: (data.authors || []).length, label: 'Authors' },
+                { icon: '📅', value: data.year || 'Unknown', label: 'Year' },
+                { icon: '⏱️', value: `${data.estimatedReadTime || '?'} min`, label: 'Read Time' },
+            ];
+            const statsBar = document.getElementById('statsBar');
+            statsBar.innerHTML = statItems.map((s, i) => `
+                <div style="display:flex;align-items:center;gap:10px;min-width:100px;">
+                    <span style="font-size:24px;">${s.icon}</span>
+                    <div>
+                        <div style="font-size:18px;font-weight:900;color:#1e40af;line-height:1.1;">${s.value}</div>
+                        <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${s.label}</div>
+                    </div>
+                </div>
+                ${i < statItems.length - 1 ? '<div style="width:1px;background:#e0e7ff;align-self:stretch;"></div>' : ''}
+            `).join('');
+            statsBar.style.display = 'flex';
+
             document.getElementById('copySummaryBtn').onclick = async () => {
                 await navigator.clipboard.writeText(rawSummaryData);
                 const btnText = document.getElementById('copySummaryText');
@@ -532,32 +564,39 @@ Section-by-Section Analysis
             // --- Accordion Sections ---
             const sectionsList = document.getElementById('sectionsList');
             if (data.sections && Object.keys(data.sections).length > 0) {
-                let idx = 0;
-                for (const [sName, sText] of Object.entries(data.sections)) {
-                    if (!sText || sText.trim().length === 0) continue;
-                    const accId = `acc-${idx++}`;
-                    const isFirst = idx === 1;
-                    const secItem = document.createElement('div');
-                    secItem.className = 'border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm';
-                    secItem.innerHTML = `
-                        <button class="accordion-trigger w-full text-left px-6 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
-                            onclick="toggleAccordion('${accId}')">
-                            <div class="flex items-center gap-3">
-                                <div class="w-2 h-2 rounded-full bg-primary flex-shrink-0"></div>
-                                <span class="font-black text-sm uppercase tracking-widest text-slate-500 group-hover:text-primary transition-colors">${sName}</span>
-                            </div>
-                            <span id="${accId}-icon" class="material-symbols-outlined text-slate-300 transition-transform duration-300 ${isFirst ? 'rotate-180' : ''}">
-                                expand_more
-                            </span>
-                        </button>
-                        <div id="${accId}" class="accordion-body overflow-hidden transition-all duration-300" style="max-height:${isFirst ? '2000px' : '0'};">
-                            <div class="px-6 pb-6 prose prose-sm prose-slate dark:prose-invert max-w-none border-t border-slate-50 dark:border-slate-800 pt-4">
-                                ${marked.parse(sText)}
+                const sectionEntries = Object.entries(data.sections);
+                sectionsList.innerHTML = sectionEntries.map(([name, text], i) => {
+                    if (!text || text.trim().length === 0) return '';
+                    const wordCount = (text || '').split(/\s+/).filter(Boolean).length;
+                    const readTime = Math.max(1, Math.ceil(wordCount / 250));
+                    const accId = `acc-${i}`;
+                    const isFirst = i === 0;
+                    
+                    return `
+                        <div style="border:1px solid #e2e8f0;border-radius:16px;margin-bottom:12px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                            <button onclick="toggleSection('${accId}')" 
+                                style="width:100%;display:flex;align-items:center;justify-content:space-between;
+                                       padding:16px 24px;background:#fafbfc;border:none;cursor:pointer;text-align:left;transition:background 0.2s;">
+                                <div style="display:flex;align-items:center;gap:12px;">
+                                    <span style="font-size:13px;font-weight:900;color:#334155;text-transform:uppercase;letter-spacing:0.05em;">${name.replace(/_/g,' ')}</span>
+                                    <span style="font-size:10px;color:#94a3b8;background:#f1f5f9;padding:3px 10px;border-radius:20px;font-weight:700;">
+                                        ${wordCount} words · ${readTime} min read
+                                    </span>
+                                </div>
+                                <span id="chevron-${i}" class="material-symbols-outlined" 
+                                    style="font-size:20px;color:#94a3b8;transition:transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                                           transform:${isFirst ? 'rotate(180deg)' : 'rotate(0deg)'}">
+                                    expand_more
+                                </span>
+                            </button>
+                            <div id="${accId}" 
+                                style="padding:${isFirst ? '20px 24px' : '0 24px'};max-height:${isFirst ? '1000px' : '0'};
+                                       overflow:hidden;transition:all 0.4s cubic-bezier(0.4, 0, 0.2, 1);font-size:14px;line-height:1.8;color:#475569;">
+                                ${marked.parse(text || '<em style="color:#94a3b8">No content available</em>')}
                             </div>
                         </div>
                     `;
-                    sectionsList.appendChild(secItem);
-                }
+                }).join('');
             } else {
                 sectionsList.innerHTML = "<p class='text-slate-400 italic text-sm'>No modular section data available for this paper.</p>";
             }
