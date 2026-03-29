@@ -62,15 +62,25 @@
 <span class="material-symbols-outlined text-[14px]">description</span>
 <span id="headerPaperTitle" class="max-w-[200px] truncate">Paper Analysis Active</span>
 </div>
-        <button id="saveChatBtn" title="Save conversation" 
-          style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
-                 color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;
-                 padding:6px 14px;cursor:pointer;transition:all 0.2s;"
-          onmouseover="this.style.borderColor='#1e68f1';this.style.color='#1e68f1'"
-          onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#64748b'">
-          <span class="material-symbols-outlined" style="font-size:16px">download</span>
-          Save Chat
-        </button>
+        <div class="flex items-center gap-2">
+            <button id="clearChatBtn" title="Clear conversation history"
+              style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;
+                     color:#94a3b8;background:transparent;border:none;cursor:pointer;padding:6px;transition:all 0.2s;"
+              onmouseover="this.style.color='#f43f5e'"
+              onmouseout="this.style.color='#94a3b8'"
+              onclick="if(confirm('Clear this chat session?')){ const urlParams = new URLSearchParams(window.location.search); const paperId = urlParams.get('paperId'); const paperIds = JSON.parse(localStorage.getItem('selectedPapers') || '[]'); const key = 'chat_' + (paperId || paperIds.join('_')); sessionStorage.removeItem(key); location.reload(); }">
+              <span class="material-symbols-outlined" style="font-size:18px">delete_sweep</span>
+            </button>
+            <button id="saveChatBtn" title="Save conversation" 
+              style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+                     color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;
+                     padding:6px 14px;cursor:pointer;transition:all 0.2s;"
+              onmouseover="this.style.borderColor='#1e68f1';this.style.color='#1e68f1'"
+              onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#64748b'">
+              <span class="material-symbols-outlined" style="font-size:16px">download</span>
+              Save Chat
+            </button>
+        </div>
         <div class="h-8 w-8 rounded-full bg-slate-100 overflow-hidden border border-slate-200 cursor-pointer">
 <img alt="User" class="h-full w-full object-cover" src="https://ui-avatars.com/api/?name=Research+User&background=1e68f1&color=fff"/>
 </div>
@@ -142,6 +152,18 @@
             return;
         }
 
+        const CHAT_STORAGE_KEY = `chat_${paperId || paperIds.join('_')}`;
+
+        function persistMessage(role, text, metadata = null) {
+          try {
+            const stored = JSON.parse(sessionStorage.getItem(CHAT_STORAGE_KEY) || '[]');
+            stored.push({ role, text, metadata, ts: Date.now() });
+            // Keep last 30 messages to avoid storage bloat
+            if (stored.length > 30) stored.splice(0, stored.length - 30);
+            sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(stored));
+          } catch (e) { console.error('Failed to persist chat message:', e); }
+        }
+
         const chatContainer = document.getElementById('chatContainer');
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
@@ -154,6 +176,30 @@
                 handleSend();
             };
         });
+
+        function restoreSession() {
+          const stored = JSON.parse(sessionStorage.getItem(CHAT_STORAGE_KEY) || '[]');
+          if (stored.length === 0) return;
+          
+          // Remove the default greeting
+          const defaultGreeting = chatContainer.querySelector('.space-y-4');
+          if (defaultGreeting) defaultGreeting.remove();
+          
+          stored.forEach((msg, i) => {
+            if (msg.role === 'user') {
+              appendUserMessage(msg.text);
+            } else {
+              const id = 'restored-' + i;
+              appendAssistantMessage(renderMarkdown(msg.text), '', id);
+              if (msg.metadata) injectMetadata(id, msg.metadata);
+            }
+          });
+          
+          scrollToBottom();
+          showToast(`Restored ${Math.floor(stored.length / 2)} previous Q&A from this session`, 'info', 2500);
+        }
+
+        restoreSession();
 
         chatInput.onkeypress = (e) => { if (e.key === 'Enter') handleSend(); };
         sendBtn.onclick = handleSend;
@@ -168,6 +214,7 @@
 
             // 1. Append User Message
             appendUserMessage(question);
+            persistMessage('user', question);
             chatInput.value = '';
             
             // 2. Append Loading Assistant Message
@@ -230,6 +277,11 @@
 
                             if (data.final) {
                                 injectMetadata(loadingId, data);
+                                persistMessage('assistant', fullText, { 
+                                  confidenceLabel: data.confidenceLabel, 
+                                  confidenceScore: data.confidenceScore, 
+                                  sources: data.sources 
+                                });
                             }
 
                             if (data.suggestions) {
