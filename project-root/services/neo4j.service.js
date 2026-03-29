@@ -2,7 +2,12 @@ const neo4j = require("neo4j-driver");
 
 const NEO4J_URL = process.env.NEO4J_URL || "bolt://localhost:7687";
 const NEO4J_USER = process.env.NEO4J_USER || "neo4j";
-const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || "HelloWorld@4321";
+const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD;
+
+if (!NEO4J_PASSWORD) {
+  console.error('❌ FATAL: NEO4J_PASSWORD environment variable is not set. Exiting.');
+  process.exit(1);
+}
 
 console.log(`🔌 Initializing Neo4j Driver with URL: ${NEO4J_URL}`);
 

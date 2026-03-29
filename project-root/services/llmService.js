@@ -4,9 +4,33 @@ const Groq = require("groq-sdk");
 const CHAT_MODEL = "llama-3.3-70b-versatile";     // For high-quality chat
 const SUMMARY_MODEL = "llama-3.1-8b-instant";      // For high-volume tasks (Higher rate limits)
 
+if (!process.env.GROQ_API_KEY) {
+    console.error('❌ FATAL: GROQ_API_KEY environment variable is not set. Exiting.');
+    process.exit(1);
+}
+
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY
 });
+
+// ============================================================
+// EXPONENTIAL BACKOFF RETRY UTILITY
+// ============================================================
+async function withRetry(fn, maxRetries = 3, baseDelay = 1000) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err.status === 429 && attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 500;
+        console.log(`⏳ [Groq] Rate limited. Waiting ${Math.round(delay)}ms before retry ${attempt + 1}/${maxRetries - 1}...`);
+        await new Promise(r => setTimeout(r, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
 
 // ============================================================
 // GUARDRAIL 1: Relaxed Grounding
@@ -91,15 +115,27 @@ RULES:
     console.error("❌ Groq API Error:", error.message);
     if (error.status === 429) {
         console.log("🔄 429 Detected: Falling back to 8B model for chat...");
-        // Fallback for chat
-        const response = await groq.chat.completions.create({
-            model: SUMMARY_MODEL,
-            messages: messages,
-            temperature: 0.2,
-        });
-        const text = response.choices[0].message.content;
-        if (onChunk) onChunk(text);
-        return text;
+        // Notify user before generating fallback response
+        if (onChunk) onChunk('\n\n[⚡ Switched to fast model due to rate limits — response may be briefer]\n\n');
+        try {
+          const stream = await groq.chat.completions.create({
+              model: SUMMARY_MODEL,
+              messages: messages,
+              temperature: 0.2,
+              stream: true,
+          });
+          let fallbackText = '';
+          for await (const chunk of stream) {
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+              fallbackText += content;
+              if (onChunk) onChunk(content);
+            }
+          }
+          return extractAnswerFromResponse(fallbackText);
+        } catch (fallbackErr) {
+          console.error('❌ Fallback model also failed:', fallbackErr.message);
+        }
     }
     return "Failed to connect to the AI service. Please try again.";
   }
@@ -171,25 +207,26 @@ async function rewriteQuery(query, chatHistory = []) {
 async function summarizePaperSection(sectionName, sectionText) {
   console.log(`🧠 [Groq] Summarizing section: ${sectionName}`);
   try {
-    const response = await groq.chat.completions.create({
-      model: SUMMARY_MODEL, // Using 8B here is much safer for rate limits
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert academic assistant. Summarize the following research paper section professionally. Focus on the core meaning and key points. Keep it under 150 words. Do not use conversational filler."
-        },
-        {
-          role: "user",
-          content: `SECTION NAME: ${sectionName}\n\nCONTENT:\n${sectionText.slice(0, 4000)}`
-        }
-      ],
-      temperature: 0.2,
+    return await withRetry(async () => {
+      const response = await groq.chat.completions.create({
+        model: SUMMARY_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert academic assistant. Summarize the following research paper section professionally. Focus on the core meaning and key points. Keep it under 150 words. Do not use conversational filler."
+          },
+          {
+            role: "user",
+            content: `SECTION NAME: ${sectionName}\n\nCONTENT:\n${sectionText.slice(0, 4000)}`
+          }
+        ],
+        temperature: 0.2,
+      });
+      return response.choices[0].message.content.trim();
     });
-
-    return response.choices[0].message.content.trim();
   } catch (error) {
     console.error(`❌ Groq Section Summary Error (${sectionName}):`, error.message);
-    // Fallback: If AI fails, return a "Smart Snippet" instead of an error message
+    // Fallback: return a smart snippet instead of an error message
     const snippet = sectionText.slice(0, 400).trim();
     return snippet + (sectionText.length > 400 ? "..." : "");
   }
@@ -301,11 +338,185 @@ RULES:
   }
 }
 
+async function generateLiteratureReview(contextStr, streamCallback) {
+  console.log("🧠 [Groq] Generating automated literature review...");
+  const messages = [
+    {
+      role: "system",
+      content: `You are an expert academic writer synthesizing multiple research papers into a cohesive literature review.
+Given summaries and excerpts of multiple papers, write a structured literature review.
+
+You MUST include these exact sections (using markdown headers ##):
+## Overview
+## Common Themes & Agreements
+## Contradictions & Debates
+## Research Gaps & Future Directions
+## Conclusion
+
+RULES:
+1. Be specific and heavily cite papers by their provided title or authors.
+2. Write in a formal, academic style.
+3. Don't simply list paper summaries. Synthesize the findings into a narrative.
+4. Keep the total length around 500-700 words.
+5. Do not include introductory conversational filler like "Here is the review".`
+    },
+    {
+      role: "user",
+      content: `Context from papers:\n\n${contextStr}`
+    }
+  ];
+
+  try {
+    const stream = await groq.chat.completions.create({
+      model: CHAT_MODEL,
+      messages: messages,
+      temperature: 0.3,
+      max_tokens: 1500,
+      stream: true,
+    });
+
+    let fullText = "";
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        fullText += content;
+        if (streamCallback) streamCallback(content);
+      }
+    }
+    return fullText;
+  } catch (error) {
+    console.error("❌ Groq Lit Review Error:", error.message);
+    throw error;
+  }
+}
+
+async function generateMethodologyCritique(paperData, streamCallback) {
+  console.log("🧠 [Groq] Generating methodology critique...");
+  
+  // Extract methodology/results sections or use summary fallback
+  const sections = paperData.sections || {};
+  let contextStr = "Title: " + paperData.title + "\n";
+  if (sections.methodology || sections.methods) contextStr += "Methodology: " + (sections.methodology || sections.methods) + "\n";
+  if (sections.results) contextStr += "Results: " + sections.results + "\n";
+  
+  // Failsafe if we couldn't easily parse methodology headers
+  if (contextStr.length < 200 && paperData.summaryPreview) {
+      contextStr += "Summary: " + paperData.summaryPreview + "\n";
+  }
+
+  const messages = [
+    {
+      role: "system",
+      content: `You are a critical peer reviewer analyzing a research paper's methodology and findings.
+Focus strictly on identifying potential weaknesses, biases, and limitations.
+
+You MUST systematically analyze the text for:
+1. Sample size & statistical validity concerns
+2. Potential confounds or biases not addressed by the authors
+3. Limitations the authors may have brushed off or understated
+4. Reproducibility concerns
+5. Claims that appear unsupported by the data presented
+
+RULES:
+- Be highly specific, constructive, and academic.
+- Use bullet points and markdown for clear structure.
+- Do NOT provide a generic summary—you are providing a critique.`
+    },
+    {
+      role: "user",
+      content: `Paper Context:\n\n${contextStr}`
+    }
+  ];
+
+  try {
+    const stream = await groq.chat.completions.create({
+      model: CHAT_MODEL,
+      messages: messages,
+      temperature: 0.4,
+      max_tokens: 1000,
+      stream: true,
+    });
+
+    let fullText = "";
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        fullText += content;
+        if (streamCallback) streamCallback(content);
+      }
+    }
+    return fullText;
+  } catch (error) {
+    console.error("❌ Groq Critique Error:", error.message);
+    throw error;
+  }
+}
+
+async function generateFlashcards(paperData) {
+  console.log("🧠 [Groq] Generating interactive flashcards...");
+  
+  let contextStr = "Title: " + paperData.title + "\n";
+  if (paperData.summaryPreview) contextStr += "Summary: " + paperData.summaryPreview + "\n";
+  const sections = paperData.sections || {};
+  if (sections.abstract) contextStr += "Abstract: " + sections.abstract + "\n";
+  if (sections.conclusion) contextStr += "Conclusion: " + sections.conclusion + "\n";
+
+  try {
+    const response = await groq.chat.completions.create({
+      model: SUMMARY_MODEL, // Fast model
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert tutor extracting key knowledge from a research paper. 
+Generate exactly 8 study flashcards from the provided paper context.
+
+RULES:
+1. Cover: Key definitions, main methodology, core findings, and important limitations.
+2. Return ONLY a valid JSON array of objects.
+3. No conversational text or markdown formatting outside the JSON array.
+4. Each object must have exactly two keys: "front" (a question or concept) and "back" (the concise answer or definition).
+
+Example format:
+[
+  {"front": "What was the primary objective of this study?", "back": "To evaluate the efficacy of Treatment X on Disease Y over 6 months."},
+  {"front": "What was the sample size?", "back": "N=450 double-blind participants."}
+]`
+        },
+        {
+          role: "user",
+          content: `Paper Context:\n\n${contextStr}`
+        }
+      ],
+      temperature: 0.3,
+      response_format: { type: "json_object" }
+    });
+
+    const content = response.choices[0].message.content.trim();
+    try {
+      const start = content.indexOf('[');
+      const end = content.lastIndexOf(']') + 1;
+      if (start !== -1 && end !== 0) {
+        return JSON.parse(content.slice(start, end));
+      }
+      return JSON.parse(content);
+    } catch (e) {
+      console.error("❌ Flashcard Parse Error:", e, content);
+      return []; // empty fallback
+    }
+  } catch (error) {
+    console.error("❌ Groq Flashcard Error:", error.message);
+    return [];
+  }
+}
+
 module.exports = { 
   generateSummary, 
   generateStructuredSummary, 
   rewriteQuery, 
   summarizePaperSection, 
   generateFollowUpSuggestions,
-  generateComparison
+  generateComparison,
+  generateLiteratureReview,
+  generateMethodologyCritique,
+  generateFlashcards
 };

@@ -8,6 +8,8 @@ const uploadRoutes = require('./routes/upload.route');
 const summaryRoutes = require('./routes/summary.route');
 const askRoutes = require('./routes/ask.route');
 const compareRoutes = require('./routes/compare.route');
+const libraryRoutes = require('./routes/library.route');
+const litreviewRoutes = require('./routes/litreview.route');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,11 +50,41 @@ app.get('/', (req, res) => {
 // Dummy Favicon handler to stop 404 logs
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
+// ── Health Check (Railway monitoring) ───────────────────────────────────────
+app.get('/health', async (req, res) => {
+  const checks = { status: 'ok', timestamp: new Date().toISOString(), services: {} };
+
+  // Check Neo4j
+  try {
+    const { runQuery } = require('./services/neo4j.service');
+    await runQuery('RETURN 1');
+    checks.services.neo4j = 'connected';
+  } catch (e) {
+    checks.services.neo4j = 'error: ' + e.message;
+    checks.status = 'degraded';
+  }
+
+  // Check FAISS
+  try {
+    const axios = require('axios');
+    const FAISS_URL = process.env.FAISS_URL || 'http://localhost:8001';
+    await axios.get(`${FAISS_URL}/health`, { timeout: 3000 });
+    checks.services.faiss = 'connected';
+  } catch (e) {
+    checks.services.faiss = 'error: ' + e.message;
+    checks.status = 'degraded';
+  }
+
+  res.status(checks.status === 'ok' ? 200 : 503).json(checks);
+});
+
 // API Routes
 app.use('/api', uploadRoutes);
 app.use('/api', summaryRoutes);
 app.use('/api', askRoutes);
 app.use('/api', compareRoutes);
+app.use('/api', libraryRoutes);
+app.use('/api', litreviewRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

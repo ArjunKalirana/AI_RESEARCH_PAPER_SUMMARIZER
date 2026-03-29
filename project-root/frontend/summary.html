@@ -5,6 +5,8 @@
 <title>ResearchAI - Paper Analysis Summary</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/annotator.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
@@ -31,19 +33,158 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         
         /* Modern Prose Styling */
-        .prose h1, .prose h2, .prose h3 { @apply font-black tracking-tight text-slate-900 dark:text-white mb-4; }
-        .prose p { @apply text-slate-600 dark:text-slate-400 leading-relaxed mb-6 last:mb-0; }
-        .prose strong { @apply font-bold text-slate-900 dark:text-white; }
-        .prose ul { @apply list-disc pl-5 mb-6 space-y-2 text-slate-600 dark:text-slate-400; }
+        .prose h1, .prose h2, .prose h3 { font-weight: 900; letter-spacing: -0.025em; color: #0f172a; margin-bottom: 1rem; }
+        .prose p { color: #475569; line-height: 1.75; margin-bottom: 1.5rem; }
+        .prose p:last-child { margin-bottom: 0; }
+        .prose strong { font-weight: 700; color: #0f172a; }
+        .prose ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 1.5rem; color: #475569; }
         
         @keyframes fade-in {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
         .animate-in { animation: fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    </style>
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content-box {
+            background: white;
+            width: 100%;
+            max-width: 500px;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .dark .modal-content-box { background: #1e293b; border: 1px solid #334155; }
+        
+        /* Tab Styles */
+        .tab-btn {
+            flex: 1;
+            padding: 1rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            color: #1e68f1;
+            border-bottom-color: #1e68f1;
+            background: rgba(30, 104, 241, 0.05);
+        }
+        
+        /* Toast Notification */
+        #toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #10b981;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 200;
+            opacity: 0;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .loader-pulse {
+    display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--primary); animation: pulse-slow 1.5s infinite;
+}
+@keyframes pulse-slow {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(79, 142, 247, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(79, 142, 247, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(79, 142, 247, 0); }
+}
+
+/* Critique Side Panel */
+.critique-panel {
+    position: fixed; top: 0; right: -100%; width: 100%; max-width: 500px; height: 100vh;
+    background: #fff; z-index: 1000; box-shadow: -10px 0 30px rgba(0,0,0,0.1);
+    transition: right 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    display: flex; flex-direction: column;
+}
+.dark .critique-panel { background: #0f172a; border-left: 1px solid #1e293b; color: #f8fafc; }
+.critique-panel.open { right: 0; }
+.critique-header {
+    padding: 1.5rem; border-bottom: 1px solid #e2e8f0; display: flex;
+    justify-content: space-between; align-items: center; background: #fffbeb;
+}
+.dark .critique-header { background: #451a03; border-bottom-color: #1e293b; }
+.critique-body { flex: 1; overflow-y: auto; padding: 1.5rem; line-height: 1.6; }
+
+/* 3D Flashcards */
+.flashcards-container {
+    display: none; width: 100%; max-width: 600px; margin: 2rem auto; perspective: 1000px; height: 350px;
+}
+.flashcard {
+    width: 100%; height: 100%; position: relative;
+    transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+    transform-style: preserve-3d; cursor: pointer;
+}
+.flashcard.flipped { transform: rotateY(180deg); }
+.fc-side {
+    position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 2rem; border-radius: 1.5rem; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0; font-size: 1.25rem;
+}
+.dark .fc-side { border-color: #1e293b; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.fc-front { background: #f8fafc; color: #0f172a; font-weight: 600; }
+.dark .fc-front { background: #1e293b; color: #f8fafc; }
+.fc-back { background: #3b82f6; color: white; transform: rotateY(180deg); font-weight: 500; font-size: 1.1rem; }
+.dark .fc-back { background: #1d4ed8; }
+.fc-nav {
+    display: none; align-items: center; justify-content: space-between; max-width: 600px; margin: 1rem auto;
+}
+</style>
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen selection:bg-primary/10">
+
+<!-- Toast Notification -->
+<div id="toast">COPIED TO CLIPBOARD!</div>
+
+<!-- Citation Modal -->
+<div id="citationModal" class="modal-overlay">
+    <div class="modal-content-box animate-in">
+        <div class="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
+            <h3 class="font-black text-lg tracking-tight">Export Citation</h3>
+            <button onclick="closeCitationModal()" class="text-slate-400 hover:text-red-500 transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="flex border-b border-slate-100 dark:border-slate-800">
+            <button onclick="switchTab('BibTeX')" class="tab-btn active" id="tab-BibTeX">BibTeX</button>
+            <button onclick="switchTab('APA')" class="tab-btn" id="tab-APA">APA</button>
+            <button onclick="switchTab('MLA')" class="tab-btn" id="tab-MLA">MLA</button>
+        </div>
+        <div class="p-8">
+            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-100 dark:border-slate-800 mb-6">
+                <pre id="citationText" class="text-xs font-mono text-slate-600 dark:text-slate-400 whitespace-pre-wrap break-all leading-relaxed"></pre>
+            </div>
+            <button onclick="copyCitation()" class="w-full bg-primary text-white py-4 rounded-xl font-black text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3">
+                <span class="material-symbols-outlined text-xl">content_copy</span>
+                COPY CITATION
+            </button>
+        </div>
+    </div>
+</div>
 
 <header class="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl dark:border-slate-800">
 <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center text-sm">
@@ -56,6 +197,7 @@
 </div>
 <nav class="hidden md:flex items-center gap-6">
 <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="upload.html">Upload</a>
+<a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="library.html">Library</a>
 <a class="font-bold text-primary" href="#">Summary</a>
 <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="chat.html">Ask AI</a>
 <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="compare.html">Compare</a>
@@ -84,16 +226,52 @@
 <h1 id="paperTitle" class="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white leading-[1.1] mb-6 tracking-tight">
 <span class="text-slate-200 animate-pulse">Loading analysis...</span>
 </h1>
-<div class="flex flex-wrap items-center gap-6 text-sm font-medium">
-<div class="flex items-center gap-2 text-slate-500">
-<span class="material-symbols-outlined text-lg text-primary">groups</span>
-<span id="paperAuthors" class="max-w-[300px] truncate">...</span>
+<div class="flex flex-wrap items-center justify-between gap-6">
+    <div class="flex flex-wrap items-center gap-6 text-sm font-medium">
+        <div class="flex items-center gap-2 text-slate-500">
+            <span class="material-symbols-outlined text-lg text-primary">groups</span>
+            <span id="paperAuthors" class="max-w-[300px] truncate">...</span>
+        </div>
+        <div class="flex items-center gap-2 text-slate-500 border-l border-slate-200 dark:border-slate-800 pl-6">
+            <span class="material-symbols-outlined text-lg text-primary">calendar_month</span>
+            <span id="paperYear">...</span>
+        </div>
+    </div>
+    <div class="flex items-center gap-3">
+        <button onclick="openCritiquePanel()" class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 border border-amber-600/20 bg-amber-50 px-4 py-2 rounded-full hover:bg-amber-600 hover:text-white transition-all shadow-sm dark:text-amber-400 dark:bg-amber-400/10 dark:hover:text-white dark:hover:bg-amber-600">
+            <span class="material-symbols-outlined text-base">science</span>
+            <span>Critique This Paper</span>
+        </button>
+        <button onclick="openCitationModal()" class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/20 bg-primary/5 px-4 py-2 rounded-full hover:bg-primary hover:text-white transition-all shadow-sm">
+            <span class="material-symbols-outlined text-base">format_quote</span>
+            <span>Export Citation</span>
+        </button>
+    </div>
 </div>
-<div class="flex items-center gap-2 text-slate-500 border-l border-slate-200 dark:border-slate-800 pl-6">
-<span class="material-symbols-outlined text-lg text-primary">calendar_month</span>
-<span id="paperYear">...</span>
 </div>
-</div>
+
+<!-- Paper Stats Dashboard -->
+<div id="statsRow" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10 animate-in [animation-delay:50ms]" style="display:none;">
+    <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 flex flex-col gap-2 shadow-sm">
+        <span class="text-3xl">📄</span>
+        <span id="stat-pages" class="text-3xl font-black text-slate-900 dark:text-white">—</span>
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Est. Pages</span>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 flex flex-col gap-2 shadow-sm">
+        <span class="text-3xl">🧩</span>
+        <span id="stat-sections" class="text-3xl font-black text-slate-900 dark:text-white">—</span>
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Sections</span>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 flex flex-col gap-2 shadow-sm">
+        <span class="text-3xl">✂️</span>
+        <span id="stat-chunks" class="text-3xl font-black text-slate-900 dark:text-white">—</span>
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Chunks Indexed</span>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 flex flex-col gap-2 shadow-sm">
+        <span class="text-3xl">⏱️</span>
+        <span id="stat-readtime" class="text-3xl font-black text-slate-900 dark:text-white">—</span>
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Min Read Time</span>
+    </div>
 </div>
 
 <!-- Main Summary -->
@@ -115,6 +293,40 @@
 </div>
 </div>
 
+<!-- Flashcards Generator Section -->
+<div class="mb-14">
+    <div class="flex items-center justify-between mb-6">
+        <h3 class="flex items-center gap-3 text-lg font-black tracking-tight">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <span class="material-symbols-outlined">style</span>
+            </div>
+            Smart Flashcards
+        </h3>
+        <button id="generateCardsBtn" onclick="fetchFlashcards()" class="text-xs font-bold uppercase tracking-widest text-blue-500 hover:text-blue-600 flex items-center gap-1 transition-colors">
+            <span class="material-symbols-outlined text-base">magic_button</span> Generate set
+        </button>
+    </div>
+    
+    <div id="fcLoading" style="display:none;" class="py-12 text-center text-slate-400">
+        <span class="loader-pulse mr-2 bg-blue-500"></span> Mining key concepts...
+    </div>
+    
+    <div id="fcContainer" class="flashcards-container">
+        <div id="fcCard" class="flashcard" onclick="flipCard()">
+            <div id="fcFront" class="fc-side fc-front">Question loading...</div>
+            <div id="fcBack" class="fc-side fc-back shadow-blue-500/30">Answer loading...</div>
+        </div>
+    </div>
+    <div id="fcNav" class="fc-nav">
+        <button onclick="prevCard()" class="text-slate-400 hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><span class="material-symbols-outlined">arrow_back</span></button>
+        <div id="fcProgress" class="text-sm font-bold text-slate-500 uppercase tracking-widest">Card 1 / 8</div>
+        <div class="flex gap-2">
+            <button onclick="shuffleCards()" class="text-slate-400 hover:text-amber-500 transition-colors p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><span class="material-symbols-outlined">shuffle</span></button>
+            <button onclick="nextCard()" class="text-slate-400 hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><span class="material-symbols-outlined">arrow_forward</span></button>
+        </div>
+    </div>
+</div>
+
 <h3 class="flex items-center gap-3 text-lg font-black tracking-tight mb-8">
 <div class="w-10 h-10 rounded-xl bg-orange-400/10 flex items-center justify-center text-orange-500">
 <span class="material-symbols-outlined">lab_panel</span>
@@ -122,8 +334,8 @@
 Section-by-Section Analysis
 </h3>
 
-<div id="sectionsList" class="space-y-6">
-<!-- Detailed segments -->
+<div id="sectionsList" class="space-y-3">
+<!-- Accordion segments injected by JS -->
 </div>
 
 <div class="mt-16 pt-10 border-t border-slate-50 dark:border-slate-800 flex flex-wrap items-center justify-between gap-6">
@@ -145,22 +357,126 @@ Section-by-Section Analysis
 </section>
 </div>
 
+<!-- Critique Side Panel -->
+<div id="critiquePanel" class="critique-panel">
+    <div class="critique-header">
+        <h3 class="text-lg font-black text-amber-600 dark:text-amber-400 flex items-center gap-2">
+            <span class="material-symbols-outlined">science</span> Methodology Critique
+        </h3>
+        <button onclick="closeCritiquePanel()" class="text-amber-800 dark:text-amber-200 hover:text-black dark:hover:text-white p-1 rounded transition-colors"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div id="critiqueBody" class="critique-body prose prose-slate dark:prose-invert prose-amber max-w-none custom-scrollbar">
+        <div id="critiqueSpinner" class="flex flex-col items-center justify-center h-full text-slate-400/60 font-medium">
+            <span class="loader-pulse mr-2 !bg-amber-500 mb-4 block"></span>
+            Analyzing statistical validity and biases...
+        </div>
+        <div id="critiqueMarkdown"></div>
+    </div>
+</div>
+
 <footer class="mt-20 pb-12 text-center text-slate-300 dark:text-slate-600 text-[10px] font-black uppercase tracking-[0.2em]">
 <p>© 2026 RESEARCHAI • ACADEMIC INTELLIGENCE ENGINE</p>
 </footer>
 
 <script>
+    let currentPaperData = null;
+    let currentTab = 'BibTeX';
+
+    function openCitationModal() {
+        document.getElementById('citationModal').classList.add('active');
+        updateCitationText();
+    }
+
+    function closeCitationModal() {
+        document.getElementById('citationModal').classList.remove('active');
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`tab-${tab}`).classList.add('active');
+        updateCitationText();
+    }
+
+    function updateCitationText() {
+        if (!currentPaperData) return;
+        
+        const title = currentPaperData.title;
+        const year = currentPaperData.year || "n.d.";
+        const authorsList = (currentPaperData.authors || []).map(a => a.authorName || a);
+        const firstAuthor = authorsList[0] || "Unknown";
+        const lastNames = authorsList.map(a => a.split(' ').pop());
+
+        let text = "";
+        if (currentTab === 'BibTeX') {
+            const citeKey = (lastNames[0] || 'paper') + year;
+            text = `@article{${citeKey.toLowerCase()},
+  title = {${title}},
+  author = {${authorsList.join(' and ')}},
+  year = {${year}},
+}`;
+        } else if (currentTab === 'APA') {
+            const apaAuthors = authorsList.map(a => {
+                const parts = a.split(' ');
+                const last = parts.pop();
+                const initials = parts.map(p => p[0] + '.').join(' ');
+                return `${last}, ${initials}`;
+            });
+            let authorString = "";
+            if (apaAuthors.length === 1) authorString = apaAuthors[0];
+            else if (apaAuthors.length === 2) authorString = `${apaAuthors[0]} & ${apaAuthors[1]}`;
+            else authorString = `${apaAuthors.slice(0, -1).join(', ')}, & ${apaAuthors.slice(-1)}`;
+            
+            text = `${authorString} (${year}). ${title}.`;
+        } else if (currentTab === 'MLA') {
+            let authorString = "";
+            if (authorsList.length === 1) {
+                const parts = authorsList[0].split(' ');
+                const last = parts.pop();
+                authorString = `${last}, ${parts.join(' ')}`;
+            } else if (authorsList.length === 2) {
+                const p1 = authorsList[0].split(' ');
+                const last1 = p1.pop();
+                authorString = `${last1}, ${p1.join(' ')} and ${authorsList[1]}`;
+            } else {
+                const parts = authorsList[0].split(' ');
+                const last = parts.pop();
+                authorString = `${last}, ${parts.join(' ')}, et al`;
+            }
+            text = `${authorString}. "${title}." ${year}.`;
+        }
+
+        document.getElementById('citationText').textContent = text;
+    }
+
+    async function copyCitation() {
+        const text = document.getElementById('citationText').textContent;
+        await navigator.clipboard.writeText(text);
+        
+        const toast = document.getElementById('toast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function toggleAccordion(id) {
+        const body = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+        if (!body) return;
+        const isOpen = body.style.maxHeight !== '0px' && body.style.maxHeight !== '';
+        body.style.maxHeight = isOpen ? '0' : '2000px';
+        if (icon) icon.style.transform = isOpen ? '' : 'rotate(180deg)';
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         const urlParams = new URLSearchParams(window.location.search);
         const paperId = urlParams.get('paperId');
 
         if (!paperId) {
-            alert('Security Error: No paper mapping found.');
-            window.location.href = 'upload.html';
+            showToast('No paper ID found — please upload a paper first.', 'error', 4000);
+            setTimeout(() => window.location.href = 'upload.html', 1500);
             return;
         }
 
-        // Setup global actions
         document.getElementById('askAiBtn').onclick = () => window.location.href = `chat.html?paperId=${paperId}`;
         document.getElementById('downloadPdfBtn').onclick = () => window.location.href = `/api/download/${paperId}`;
 
@@ -170,6 +486,7 @@ Section-by-Section Analysis
             const res = await fetch(`/api/summary/${paperId}`);
             if (!res.ok) throw new Error('Paper cache not found on backend.');
             const data = await res.json();
+            currentPaperData = data;
 
             document.getElementById('paperTitle').textContent = data.title;
             
@@ -179,12 +496,32 @@ Section-by-Section Analysis
             }
             document.getElementById('paperAuthors').textContent = authorTxt;
             document.getElementById('paperYear').textContent = data.year || "Unknown Era";
+
+            // --- Paper Stats Dashboard ---
+            const pages = Math.max(1, Math.round((data.fullTextLength || 0) / 3000));
+            document.getElementById('stat-pages').textContent = pages;
+            document.getElementById('stat-sections').textContent = data.sectionCount || 0;
+            document.getElementById('stat-chunks').textContent = data.chunkCount || 0;
+            document.getElementById('stat-readtime').textContent = data.estimatedReadTime || '<1';
+            const statsRow = document.getElementById('statsRow');
+            statsRow.style.display = 'grid';
+            // Inject count-up animation
+            statsRow.querySelectorAll('[id^="stat-"]').forEach(el => {
+                const target = parseInt(el.textContent) || 0;
+                if (target > 0) {
+                    let cur = 0;
+                    const step = Math.ceil(target / 30);
+                    const timer = setInterval(() => {
+                        cur = Math.min(cur + step, target);
+                        el.textContent = cur;
+                        if (cur >= target) clearInterval(timer);
+                    }, 30);
+                }
+            });
             
-            // Render main summary with Markdown
             rawSummaryData = data.summary || "Summary generation pending...";
             document.getElementById('paperSummary').innerHTML = marked.parse(rawSummaryData);
 
-            // Copy Action
             document.getElementById('copySummaryBtn').onclick = async () => {
                 await navigator.clipboard.writeText(rawSummaryData);
                 const btnText = document.getElementById('copySummaryText');
@@ -192,21 +529,31 @@ Section-by-Section Analysis
                 setTimeout(() => btnText.textContent = "COPY ANALYSIS", 2000);
             };
 
-            // Section List
+            // --- Accordion Sections ---
             const sectionsList = document.getElementById('sectionsList');
             if (data.sections && Object.keys(data.sections).length > 0) {
+                let idx = 0;
                 for (const [sName, sText] of Object.entries(data.sections)) {
                     if (!sText || sText.trim().length === 0) continue;
-                    
+                    const accId = `acc-${idx++}`;
+                    const isFirst = idx === 1;
                     const secItem = document.createElement('div');
-                    secItem.className = 'group p-6 rounded-2xl border border-slate-50 dark:border-slate-800 hover:border-primary/20 transition-all bg-white dark:bg-slate-900 shadow-sm';
+                    secItem.className = 'border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm';
                     secItem.innerHTML = `
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
-                            <h4 class="font-black text-sm uppercase tracking-widest text-slate-400 group-hover:text-primary transition-colors">${sName}</h4>
-                        </div>
-                        <div class="prose prose-sm prose-slate dark:prose-invert max-w-none">
-                            ${marked.parse(sText)}
+                        <button class="accordion-trigger w-full text-left px-6 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
+                            onclick="toggleAccordion('${accId}')">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2 h-2 rounded-full bg-primary flex-shrink-0"></div>
+                                <span class="font-black text-sm uppercase tracking-widest text-slate-500 group-hover:text-primary transition-colors">${sName}</span>
+                            </div>
+                            <span id="${accId}-icon" class="material-symbols-outlined text-slate-300 transition-transform duration-300 ${isFirst ? 'rotate-180' : ''}">
+                                expand_more
+                            </span>
+                        </button>
+                        <div id="${accId}" class="accordion-body overflow-hidden transition-all duration-300" style="max-height:${isFirst ? '2000px' : '0'};">
+                            <div class="px-6 pb-6 prose prose-sm prose-slate dark:prose-invert max-w-none border-t border-slate-50 dark:border-slate-800 pt-4">
+                                ${marked.parse(sText)}
+                            </div>
                         </div>
                     `;
                     sectionsList.appendChild(secItem);
@@ -220,5 +567,145 @@ Section-by-Section Analysis
             document.getElementById('paperSummary').innerHTML = `<p class="text-red-500 font-bold">CRITICAL: ${error.message}</p>`;
         }
     });
+
+    // ==== Methodology Critique Logic ====
+    const critiquePanel = document.getElementById('critiquePanel');
+    const critiqueMarkdown = document.getElementById('critiqueMarkdown');
+    const critiqueSpinner = document.getElementById('critiqueSpinner');
+    let critiqueStreamCache = "";
+
+    function openCritiquePanel() {
+        if (!paperId) return;
+        critiquePanel.classList.add('open');
+        if (critiqueStreamCache) return; // already loaded
+
+        critiqueSpinner.style.display = 'flex';
+        critiqueMarkdown.innerHTML = '';
+        
+        fetch(`/api/critique/${paperId}`, { method: 'POST' })
+        .then(async response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            critiqueSpinner.style.display = 'none';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split('\n\n');
+                buffer = parts.pop();
+
+                for (const part of parts) {
+                    if (!part.startsWith('data:')) continue;
+                    try {
+                        const payload = JSON.parse(part.slice(5).trim());
+                        if (payload.chunk) {
+                            critiqueStreamCache += payload.chunk;
+                            critiqueMarkdown.innerHTML = marked.parse(critiqueStreamCache);
+                        }
+                        if (payload.error) showToast(payload.error, 'error');
+                    } catch (e) {}
+                }
+            }
+        })
+        .catch(err => {
+            critiqueSpinner.style.display = 'none';
+            critiqueMarkdown.innerHTML = `<p class="text-red-500">Failed to stream critique: ${err.message}</p>`;
+        });
+    }
+
+    function closeCritiquePanel() {
+        critiquePanel.classList.remove('open');
+    }
+
+    // ==== Flashcards Logic ====
+    let flashcards = [];
+    let currentCardIndex = 0;
+    let isFlipping = false;
+
+    async function fetchFlashcards() {
+        if (!paperId) return;
+        const btn = document.getElementById('generateCardsBtn');
+        const loading = document.getElementById('fcLoading');
+        const container = document.getElementById('fcContainer');
+        const nav = document.getElementById('fcNav');
+        
+        btn.style.display = 'none';
+        loading.style.display = 'block';
+
+        try {
+            const res = await fetch(`/api/flashcards/${paperId}`);
+            if (!res.ok) throw new Error("Failed to load cards");
+            const data = await res.json();
+            
+            if (data.flashcards && data.flashcards.length > 0) {
+                flashcards = data.flashcards;
+                currentCardIndex = 0;
+                loading.style.display = 'none';
+                container.style.display = 'block';
+                nav.style.display = 'flex';
+                renderCurrentCard();
+            } else {
+                throw new Error("No flashcards returned");
+            }
+        } catch (error) {
+            loading.innerHTML = `<span class="text-red-500 text-sm font-bold">Error: ${error.message}</span>`;
+            btn.style.display = 'flex'; // show button again to retry
+        }
+    }
+
+    function renderCurrentCard() {
+        if (!flashcards.length) return;
+        const cardElement = document.getElementById('fcCard');
+        const front = document.getElementById('fcFront');
+        const back = document.getElementById('fcBack');
+        const progress = document.getElementById('fcProgress');
+
+        // Reset flip state without animation for instant content swap
+        cardElement.style.transition = 'none';
+        cardElement.classList.remove('flipped');
+        
+        // Force reflow
+        void cardElement.offsetHeight;
+        
+        // Restore animation
+        cardElement.style.transition = 'transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1)';
+        
+        front.textContent = flashcards[currentCardIndex].front;
+        back.textContent = flashcards[currentCardIndex].back;
+        progress.textContent = `Card ${currentCardIndex + 1} / ${flashcards.length}`;
+    }
+
+    function flipCard() {
+        if (isFlipping) return;
+        isFlipping = true;
+        document.getElementById('fcCard').classList.toggle('flipped');
+        setTimeout(() => isFlipping = false, 600);
+    }
+
+    function nextCard() {
+        if (currentCardIndex < flashcards.length - 1) {
+            currentCardIndex++;
+            renderCurrentCard();
+        }
+    }
+
+    function prevCard() {
+        if (currentCardIndex > 0) {
+            currentCardIndex--;
+            renderCurrentCard();
+        }
+    }
+
+    function shuffleCards() {
+        for (let i = flashcards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+        }
+        currentCardIndex = 0;
+        renderCurrentCard();
+    }
 </script>
 </body></html>

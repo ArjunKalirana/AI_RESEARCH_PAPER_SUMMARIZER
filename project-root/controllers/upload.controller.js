@@ -153,7 +153,7 @@ async function uploadPaper(req, res) {
     }
 
     // ── Stage 6: Summarizing (AI) ────────────────────────────────────────────
-    if (isSSE) await sendEvent({ stage: 'summarizing', label: 'Generating AI summaries...', percent: 90 });
+    if (isSSE) await sendEvent({ stage: 'summarizing', label: 'Generating AI summaries...', percent: 90, note: 'This may take 30–60s for longer papers.' });
     if (shouldAbort()) return;
 
     const abstractChunk = chunks.find(c => c.sectionName === 'abstract') || chunks[0];
@@ -168,8 +168,6 @@ async function uploadPaper(req, res) {
     for (const [sName, sText] of Object.entries(sections)) {
       if (shouldAbort()) return;
       if (sText && sText.length > 50) {
-        // 🐢 Pacing: Wait 1s between sections to respect TPM limits
-        await new Promise(r => setTimeout(r, 1000));
         summarizedSections[sName] = await summarizePaperSection(sName, sText);
       } else {
         summarizedSections[sName] = sText;

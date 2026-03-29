@@ -29,7 +29,11 @@ async function getSummary(req, res) {
       authors: paperData.authors,
       year: paperData.year,
       summary: paperData.summaryPreview || "No summary available.",
-      sections: paperData.sections
+      sections: paperData.sections,
+      chunkCount: paperData.chunks?.length || 0,
+      sectionCount: Object.keys(paperData.sections || {}).length,
+      fullTextLength: paperData.fullTextLength || 0,
+      estimatedReadTime: Math.ceil((paperData.fullTextLength || 0) / 1500),
     };
 
     res.json(responsePayload);
@@ -77,7 +81,75 @@ async function downloadPaper(req, res) {
   }
 }
 
+const { generateMethodologyCritique, generateFlashcards } = require('../services/llmService');
+
+async function streamCritique(req, res) {
+  try {
+    const { paperId } = req.params;
+    const cleanPaperId = path.basename(paperId);
+    const filePath = path.join(DATA_DIR, `${cleanPaperId}.json`);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Paper not found' });
+    }
+
+    const paperData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    await generateMethodologyCritique(paperData, (chunk) => {
+      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    });
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (error) {
+    console.error('❌ Stream Critique Error:', error);
+    res.write(`data: ${JSON.stringify({ error: error.message || 'Failed to generate critique' })}\n\n`);
+    res.end();
+  }
+}
+
+async function getFlashcards(req, res) {
+  try {
+    const { paperId } = req.params;
+    const cleanPaperId = path.basename(paperId);
+    const filePath = path.join(DATA_DIR, `${cleanPaperId}.json`);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Paper not found' });
+    }
+
+    const paperData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+
+    // Return cached flashcards if they already exist
+    if (paperData.flashcards && Array.isArray(paperData.flashcards) && paperData.flashcards.length > 0) {
+      return res.json({ success: true, flashcards: paperData.flashcards });
+    }
+
+    // Generate new flashcards
+    const newFlashcards = await generateFlashcards(paperData);
+
+    if (newFlashcards && newFlashcards.length > 0) {
+      // Cache them into the processed JSON
+      paperData.flashcards = newFlashcards;
+      fs.writeFileSync(filePath, JSON.stringify(paperData, null, 2));
+      return res.json({ success: true, flashcards: newFlashcards });
+    } else {
+      return res.status(500).json({ error: 'Failed to generate flashcards from AI' });
+    }
+  } catch (error) {
+    console.error('❌ Flashcards Route Error:', error);
+    res.status(500).json({ error: 'Failed to retrieve flashcards' });
+  }
+}
+
 module.exports = {
   getSummary,
-  downloadPaper
+  downloadPaper,
+  streamCritique,
+  getFlashcards
 };

@@ -111,13 +111,11 @@ class RerankSearchInput(BaseModel):
 
 @app.get("/health")
 def health_check():
-    indices = []
-    if os.path.exists("index_store"):
-        indices = [f.replace(".index", "") for f in os.listdir("index_store") if f.endswith(".index")]
     return {
         "status": "ok",
-        "loaded_indices": indices,
-        "total_loaded": len(indices)
+        "loaded_indices": list(index_cache.indices.keys()),
+        "total_loaded": len(index_cache.indices),
+        "reranker_available": reranker is not None
     }
 
 @app.post("/rebuild-index")
@@ -241,6 +239,32 @@ def search_reranked(data: RerankSearchInput):
 
     return {"results": results}
 
+
+@app.delete("/delete-index/{index_id}")
+def delete_index(index_id: str):
+    index_path = f"index_store/{index_id}.index"
+    manifest_path = f"index_store/{index_id}.manifest.json"
+    chunks_path = f"index_store/{index_id}.chunks.json"
+    
+    deleted = []
+    for path in [index_path, manifest_path, chunks_path]:
+        if os.path.exists(path):
+            os.remove(path)
+            deleted.append(path)
+            
+    # Remove from cache if present
+    if index_id in index_cache.indices:
+        del index_cache.indices[index_id]
+        if index_id in index_cache.chunks:
+            del index_cache.chunks[index_id]
+        if index_id in index_cache.order:
+            index_cache.order.remove(index_id)
+        gc.collect()
+            
+    if not deleted:
+        return {"status": "not_found", "message": f"Index {index_id} not found on disk."}
+        
+    return {"status": "deleted", "files": deleted}
 
 @app.post("/similarity")
 def compute_similarity(data: SentencePair):
