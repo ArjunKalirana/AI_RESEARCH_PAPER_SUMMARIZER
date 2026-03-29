@@ -70,16 +70,10 @@ index_cache = IndexCache(max_size=3)
 # Bi-encoder: fast embedding model for FAISS retrieval
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Cross-encoder: loaded ONCE at startup for reranking.
+# Reranker disabled — too memory-intensive for Railway hobby tier.
+# The /search-reranked endpoint will fall back to basic FAISS search.
 reranker = None
-try:
-    reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-    logger.info("[startup] CrossEncoder loaded successfully")
-except Exception as e:
-    logger.warning(
-        "[startup] CrossEncoder failed to load — reranking disabled, "
-        "falling back to basic FAISS search. Reason: %s", e
-    )
+logger.info("[startup] Reranker disabled to conserve memory. Using basic FAISS search.")
 
 # ── Pydantic models ────────────────────────────────────────────────────────────
 
@@ -173,69 +167,39 @@ def search_text(data: SearchInput):
 
 @app.post("/search-reranked")
 def search_reranked(data: RerankSearchInput):
-    if reranker is None:
-        return {"error": "reranker_unavailable", "results": []}
-
-    # ── 1. Use Cache ──────────────────────────────────────────────────────────
+    # Reranker disabled for memory — fallback to basic search logic
     index, chunks_store = index_cache.get(data.index_id)
     if not index or not chunks_store:
         return {"results": []}
 
-    row_to_text = {entry["row"]: entry["text"] for entry in chunks_store}
-    row_to_chunk_index = {entry["row"]: entry["chunkIndex"] for entry in chunks_store}
-
-    # ── 3. FAISS retrieval ────────────────────────────────────────────────────
     query_embedding = model.encode([data.query])
     query_embedding = np.array(query_embedding).astype("float32")
     faiss.normalize_L2(query_embedding)
 
-    fetch_k = min(data.fetch_k, index.ntotal)
-    if fetch_k == 0:
+    # Use k or fetch_k depending on what the frontend requested
+    search_k = min(data.k, index.ntotal)
+    if search_k == 0:
         return {"results": []}
 
-    D, I = index.search(query_embedding, fetch_k)
+    D, I = index.search(query_embedding, search_k)
     faiss_distances = D[0].tolist()
     faiss_indices   = I[0].tolist()
 
-    # ── 4. Build candidates ───────────────────────────────────────────────────
-    candidates = []
+    results = []
     for row, faiss_score in zip(faiss_indices, faiss_distances):
-        if row == -1:
-            continue
-        text = row_to_text.get(row)
-        if text is None:
-            continue
-        candidates.append({
-            "row":         row,
-            "chunkIndex":  row_to_chunk_index.get(row, row),
-            "text":        text,
-            "faiss_score": faiss_score,
+        if row == -1: continue
+        
+        # Match row index from FAISS with chunk in chunks_store
+        chunk = next((c for c in chunks_store if c["row"] == row), None)
+        if not chunk: continue
+        
+        results.append({
+            "row":          row,
+            "chunkIndex":   chunk.get("chunkIndex", row),
+            "text":         chunk.get("text", ""),
+            "faiss_score":  faiss_score,
+            "rerank_score": faiss_score  # Fallback: use FAISS score as rerank score
         })
-
-    if not candidates:
-        return {"results": []}
-
-    # ── 5. Cross-encoder scoring ──────────────────────────────────────────────
-    pairs = [[data.query, c["text"]] for c in candidates]
-    rerank_scores = reranker.predict(pairs)
-
-    for candidate, score in zip(candidates, rerank_scores.tolist()):
-        candidate["rerank_score"] = score
-
-    # ── 6. Sort and return top k ──────────────────────────────────────────────
-    candidates.sort(key=lambda c: c["rerank_score"], reverse=True)
-    top_k = candidates[: data.k]
-
-    results = [
-        {
-            "row":          c["row"],
-            "chunkIndex":   c["chunkIndex"],
-            "text":         c["text"],
-            "faiss_score":  c["faiss_score"],
-            "rerank_score": c["rerank_score"],
-        }
-        for c in top_k
-    ]
 
     return {"results": results}
 
