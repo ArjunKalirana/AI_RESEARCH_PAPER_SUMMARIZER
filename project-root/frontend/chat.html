@@ -128,8 +128,8 @@
         }
 
         if (!paperId && paperIds.length === 0) {
-            showToast('No paper selection found. Please select papers from the library.', 'error', 4000);
-            setTimeout(() => window.location.href = 'compare.html', 1500);
+            showToast('No paper selected. Redirecting to your library...', 'warning', 3000);
+            setTimeout(() => window.location.href = 'library.html', 1500);
             return;
         }
 
