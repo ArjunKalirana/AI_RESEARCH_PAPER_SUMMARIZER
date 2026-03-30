@@ -20,12 +20,21 @@ exports.generateLitReview = async (req, res) => {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    // Keepalive heartbeat — Railway kills idle SSE connections after ~30s
+    // Force TCP to send data immediately
+    if (res.socket) {
+      res.socket.setNoDelay(true);
+      res.socket.setTimeout(0);
+    }
+
+    // Send initial event IMMEDIATELY to establish stream through Railway's HTTP/2 proxy
+    res.write('data: {"status":"processing"}\n\n');
+
+    // Keepalive with real data events (proxies may strip SSE comments)
     const keepalive = setInterval(() => {
         if (!isClosed && !res.writableEnded) {
-            res.write(': keepalive\n\n');
+            res.write('data: {"heartbeat":true}\n\n');
         }
-    }, 10000);
+    }, 8000);
 
     const contextParts = [];
     const missing = [];

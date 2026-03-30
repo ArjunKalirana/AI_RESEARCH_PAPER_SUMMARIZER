@@ -77,12 +77,21 @@ async function askQuestion(req, res) {
     res.setHeader('X-Accel-Buffering', 'no'); 
     res.flushHeaders();
 
-    // Keepalive heartbeat — Railway kills idle SSE connections after ~30s
+    // Force TCP to send data immediately (disable Nagle buffering)
+    if (res.socket) {
+      res.socket.setNoDelay(true);
+      res.socket.setTimeout(0);
+    }
+
+    // Send initial event IMMEDIATELY to establish the SSE stream through Railway's HTTP/2 proxy
+    res.write('data: {"status":"processing"}\n\n');
+
+    // Keepalive heartbeat — use real data events (some proxies strip SSE comments)
     const keepalive = setInterval(() => {
         if (!isStreamClosed && !res.writableEnded) {
-            res.write(': keepalive\n\n');
+            res.write('data: {"heartbeat":true}\n\n');
         }
-    }, 10000);
+    }, 8000);
 
     // Generate unique session ID for multi-paper chat history
     const sessionId = targetPaperIds.sort().join('_');
