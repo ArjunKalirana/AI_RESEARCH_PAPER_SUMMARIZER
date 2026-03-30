@@ -211,6 +211,11 @@
             const question = chatInput.value.trim();
             if (!question) return;
 
+            // Cancel any previous in-flight request
+            if (window._currentAskAbort) window._currentAskAbort.abort();
+            const abortController = new AbortController();
+            window._currentAskAbort = abortController;
+
             // Clear any existing follow-up chips from previous messages
             document.querySelectorAll('.suggestions-container').forEach(el => el.remove());
 
@@ -234,7 +239,8 @@
                         paperId: paperIds.length > 1 ? null : paperId, 
                         paperIds: paperIds.length > 1 ? paperIds : null,
                         question 
-                    })
+                    }),
+                    signal: abortController.signal
                 });
 
                 if (!response.ok) {
@@ -296,7 +302,8 @@
                 }
 
             } catch (err) {
-                updateAssistantMessage(loadingId, "Connection lost.");
+                if (err.name === 'AbortError') return; // User sent a new message — old one cancelled
+                updateAssistantMessage(loadingId, "Connection lost. Please try again.");
             } finally {
                if (reader) reader.releaseLock();
             }
