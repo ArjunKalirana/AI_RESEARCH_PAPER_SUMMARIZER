@@ -74,8 +74,8 @@ class Annotator {
                     const range = selection.getRangeAt(0);
                     const rect = range.getBoundingClientRect();
                     
-                    this.toolbar.style.left = \`\${rect.left + (rect.width / 2) - (this.toolbar.offsetWidth / 2)}px\`;
-                    this.toolbar.style.top = \`\${rect.top - 50 + window.scrollY}px\`;
+                    this.toolbar.style.left = `${rect.left + (rect.width / 2) - (this.toolbar.offsetWidth / 2)}px`;
+                    this.toolbar.style.top = `${rect.top - 50 + window.scrollY}px`;
                     this.toolbar.classList.remove('hidden');
                     // slight delay for animation
                     setTimeout(() => this.toolbar.classList.remove('opacity-0'), 10);
@@ -155,7 +155,7 @@ class Annotator {
         this.saveAnnotations();
         
         // Remove highlighting from DOM by replacing the mark with its contents
-        const marks = document.querySelectorAll(`mark[data-anno-id="\${id}"]`);
+        const marks = document.querySelectorAll(`mark[data-anno-id="${id}"]`);
         marks.forEach(mark => {
            const parent = mark.parentNode;
            while(mark.firstChild) parent.insertBefore(mark.firstChild, mark);
@@ -176,20 +176,20 @@ class Annotator {
         containers.forEach(container => {
             // Un-mark existing first to avoid nesting loops
             this.annotations.forEach(anno => {
-                if(!container.innerHTML.includes(`data-anno-id="\${anno.id}"`)) {
+                if(!container.innerHTML.includes(`data-anno-id="${anno.id}"`)) {
                      // Very naive replacement. Works for simple text, fails if text contains HTML
                      // We escape special regex chars in text
                      const escapedText = anno.text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                      // Find text not inside HTML tags
-                     const regex = new RegExp(`(?<!<[^>]*)(\${escapedText})`, 'gi');
+                     const regex = new RegExp(`(?<!<[^>]*)(${escapedText})`, 'gi');
                      
-                     let noteAttr = anno.note ? `title="\${anno.note.replace(/"/g, '&quot;')}"` : '';
+                     let noteAttr = anno.note ? `title="${anno.note.replace(/"/g, '&quot;')}"` : '';
                      let tooltipClass = anno.note ? 'cursor-help border-b border-dashed border-yellow-600' : '';
                      
                      container.innerHTML = container.innerHTML.replace(regex, (match) => {
                          // Only replace if it's not already wrapped
                          if(match.includes('mark data-anno-id')) return match;
-                         return `<mark data-anno-id="\${anno.id}" class="bg-yellow-200 dark:bg-yellow-900/60 text-inherit rounded px-1 transition-all hover:bg-yellow-300 dark:hover:bg-yellow-800 \${tooltipClass}" \${noteAttr}>\${match}</mark>`;
+                         return `<mark data-anno-id="${anno.id}" class="bg-yellow-200 dark:bg-yellow-900/60 text-inherit rounded px-1 transition-all hover:bg-yellow-300 dark:hover:bg-yellow-800 ${tooltipClass}" ${noteAttr}>${match}</mark>`;
                      });
                 }
             });
@@ -211,11 +211,11 @@ class Annotator {
             const item = document.createElement('div');
             item.className = 'group bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl p-3 relative';
             item.innerHTML = `
-                <div class="text-xs text-slate-800 dark:text-slate-200 line-clamp-3 mb-2 px-1 border-l-2 border-yellow-400 pl-2">\${anno.text}</div>
-                \${anno.note ? `<div class="bg-white dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-400 p-2 rounded-lg border border-slate-100 dark:border-slate-800 flex gap-2"><span class="material-symbols-outlined text-[14px]">comment</span><span>\${anno.note}</span></div>` : ''}
+                <div class="text-xs text-slate-800 dark:text-slate-200 line-clamp-3 mb-2 px-1 border-l-2 border-yellow-400 pl-2">${anno.text}</div>
+                ${anno.note ? `<div class="bg-white dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-400 p-2 rounded-lg border border-slate-100 dark:border-slate-800 flex gap-2"><span class="material-symbols-outlined text-[14px]">comment</span><span>${anno.note}</span></div>` : ''}
                 <div class="mt-2 flex justify-between items-center">
-                    <span class="text-[10px] text-slate-400 font-medium">\${new Date(anno.timestamp).toLocaleDateString()}</span>
-                    <button class="anno-del-btn text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100" data-id="\${anno.id}">
+                    <span class="text-[10px] text-slate-400 font-medium">${new Date(anno.timestamp).toLocaleDateString()}</span>
+                    <button class="anno-del-btn text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100" data-id="${anno.id}">
                         <span class="material-symbols-outlined text-sm">delete</span>
                     </button>
                 </div>
