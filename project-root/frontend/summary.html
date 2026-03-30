@@ -492,36 +492,15 @@ Section-by-Section Analysis
             document.getElementById('paperAuthors').textContent = authorTxt;
             document.getElementById('paperYear').textContent = data.year || "Unknown Era";
 
-            // --- Paper Stats Dashboard ---
-            const pages = Math.max(1, Math.round((data.fullTextLength || 0) / 3000));
-            document.getElementById('stat-pages').textContent = pages;
-            document.getElementById('stat-sections').textContent = data.sectionCount || 0;
-            document.getElementById('stat-chunks').textContent = data.chunkCount || 0;
-            document.getElementById('stat-readtime').textContent = data.estimatedReadTime || '<1';
-            const statsRow = document.getElementById('statsRow');
-            statsRow.style.display = 'grid';
-            // Inject count-up animation
-            statsRow.querySelectorAll('[id^="stat-"]').forEach(el => {
-                const target = parseInt(el.textContent) || 0;
-                if (target > 0) {
-                    let cur = 0;
-                    const step = Math.ceil(target / 30);
-                    const timer = setInterval(() => {
-                        cur = Math.min(cur + step, target);
-                        el.textContent = cur;
-                        if (cur >= target) clearInterval(timer);
-                    }, 30);
-                }
-            });
-            
             rawSummaryData = data.summary || "Summary generation pending...";
             document.getElementById('paperSummary').innerHTML = marked.parse(rawSummaryData);
 
             // --- Modern Stats Bar Injection ---
+            const pages = Math.max(1, Math.round((data.fullTextLength || 0) / 3000));
             const statItems = [
+                { icon: '📄', value: pages, label: 'Est. Pages' },
                 { icon: '🧩', value: Object.keys(data.sections || {}).length, label: 'Sections' },
-                { icon: '✍️', value: (data.authors || []).length, label: 'Authors' },
-                { icon: '📅', value: data.year || 'Unknown', label: 'Year' },
+                { icon: '✂️', value: data.chunkCount || 0, label: 'Chunks' },
                 { icon: '⏱️', value: `${data.estimatedReadTime || '?'} min`, label: 'Read Time' },
             ];
             const statsBar = document.getElementById('statsBar');
