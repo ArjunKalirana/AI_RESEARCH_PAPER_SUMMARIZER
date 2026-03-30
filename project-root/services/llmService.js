@@ -13,6 +13,16 @@ const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY
 });
 
+// Timeout utility — prevents hanging when Groq API is degraded or quota is exhausted
+function withTimeout(promise, ms = 60000, label = 'Groq API') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+    )
+  ]);
+}
+
 // ============================================================
 // EXPONENTIAL BACKOFF RETRY UTILITY
 // ============================================================
@@ -95,12 +105,16 @@ RULES:
   });
 
   try {
-    const stream = await groq.chat.completions.create({
-      model: CHAT_MODEL,
-      messages: messages,
-      temperature: 0.2,
-      stream: true,
-    });
+    const stream = await withTimeout(
+      groq.chat.completions.create({
+        model: CHAT_MODEL,
+        messages: messages,
+        temperature: 0.2,
+        stream: true,
+      }),
+      60000,
+      'Chat stream'
+    );
 
     let fullText = "";
     for await (const chunk of stream) {
@@ -118,12 +132,16 @@ RULES:
         // Notify user before generating fallback response
         if (onChunk) onChunk('\n\n[⚡ Switched to fast model due to rate limits — response may be briefer]\n\n');
         try {
-          const stream = await groq.chat.completions.create({
-              model: SUMMARY_MODEL,
-              messages: messages,
-              temperature: 0.2,
-              stream: true,
-          });
+           const stream = await withTimeout(
+              groq.chat.completions.create({
+                  model: SUMMARY_MODEL,
+                  messages: messages,
+                  temperature: 0.2,
+                  stream: true,
+              }),
+              60000,
+              'Chat fallback stream'
+           );
           let fallbackText = '';
           for await (const chunk of stream) {
             const content = chunk.choices[0]?.delta?.content || '';
@@ -346,13 +364,17 @@ RULES:
   ];
 
   try {
-    const stream = await groq.chat.completions.create({
-      model: CHAT_MODEL,
-      messages: messages,
-      temperature: 0.3,
-      max_tokens: 1000,
-      stream: true,
-    });
+    const stream = await withTimeout(
+      groq.chat.completions.create({
+        model: CHAT_MODEL,
+        messages: messages,
+        temperature: 0.3,
+        max_tokens: 1000,
+        stream: true,
+      }),
+      60000,
+      'Comparison stream'
+    );
 
     let fullText = "";
     for await (const chunk of stream) {
@@ -403,13 +425,17 @@ RULES:
   ];
 
   try {
-    const stream = await groq.chat.completions.create({
-      model: CHAT_MODEL,
-      messages: messages,
-      temperature: 0.3,
-      max_tokens: 1500,
-      stream: true,
-    });
+    const stream = await withTimeout(
+      groq.chat.completions.create({
+        model: CHAT_MODEL,
+        messages: messages,
+        temperature: 0.3,
+        max_tokens: 1500,
+        stream: true,
+      }),
+      60000,
+      'Literature review stream'
+    );
 
     let fullText = "";
     for await (const chunk of stream) {
@@ -465,13 +491,17 @@ RULES:
   ];
 
   try {
-    const stream = await groq.chat.completions.create({
-      model: CHAT_MODEL,
-      messages: messages,
-      temperature: 0.4,
-      max_tokens: 1000,
-      stream: true,
-    });
+    const stream = await withTimeout(
+      groq.chat.completions.create({
+        model: CHAT_MODEL,
+        messages: messages,
+        temperature: 0.4,
+        max_tokens: 1000,
+        stream: true,
+      }),
+      60000,
+      'Critique stream'
+    );
 
     let fullText = "";
     for await (const chunk of stream) {

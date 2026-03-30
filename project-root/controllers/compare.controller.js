@@ -36,8 +36,8 @@ async function compareQuestion(req, res) {
         res.setHeader('X-Accel-Buffering', 'no');
         res.flushHeaders();
 
-        // 1. Rewrite Query (standalone)
-        const refinedQuery = await rewriteQuery(question, []); // No history for comparison mode
+        // No history in comparison mode — use question directly, skip the Groq call
+        const refinedQuery = question;
 
         // 2. Parallel Search across all indices (Resilient)
         const searchResults = await Promise.all(
@@ -150,17 +150,28 @@ async function compareQuestion(req, res) {
 
         if (isStreamClosed) return;
 
-        // 5. Suggestions & Final Event
-        const suggestions = await generateFollowUpSuggestions(question, answer, "Multiple Research Papers");
-
+        // 5. Send final event immediately — don't block on suggestions
         sendSSE({
             final: true,
             paperLabels,
-            sources,
-            suggestions
+            sources
         });
 
-        res.end();
+        // Generate suggestions async AFTER final — they arrive as a follow-up event
+        if (!isStreamClosed) {
+            generateFollowUpSuggestions(question, answer, "Multiple Research Papers")
+                .then(suggestions => {
+                    if (!isStreamClosed && !res.writableEnded) {
+                        sendSSE({ suggestions });
+                    }
+                })
+                .catch(() => {})
+                .finally(() => {
+                    if (!res.writableEnded) res.end();
+                });
+        } else {
+            if (!res.writableEnded) res.end();
+        }
 
     } catch (error) {
         console.error('❌ Compare API Error:', error);
