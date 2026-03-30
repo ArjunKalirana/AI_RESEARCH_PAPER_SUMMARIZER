@@ -16,10 +16,10 @@ class Annotator {
         this.toolbar.className = 'fixed z-[100] hidden bg-slate-900 border border-slate-700 rounded-full px-2 py-1 shadow-xl flex items-center gap-1 transition-opacity opacity-0';
         this.toolbar.innerHTML = `
             <button id="anno-highlight" class="p-2 hover:bg-slate-800 rounded-full text-slate-300 hover:text-yellow-400 transition-colors" title="Highlight">
-                <span class="material-symbols-outlined text-[18px]">format_ink_highlighter</span>
+                🖍️
             </button>
             <button id="anno-note" class="p-2 hover:bg-slate-800 rounded-full text-slate-300 hover:text-white transition-colors" title="Add Note">
-                <span class="material-symbols-outlined text-[18px]">edit_note</span>
+                📝
             </button>
         `;
         document.body.appendChild(this.toolbar);
@@ -30,8 +30,8 @@ class Annotator {
         this.sidebar.innerHTML = `
             <div class="px-6 flex items-center justify-between h-14 border-b border-slate-100 dark:border-slate-800">
                 <h3 class="font-bold text-sm">📌 My Annotations (<span id="anno-count">0</span>)</h3>
-                <button id="anno-close" class="text-slate-400 hover:text-slate-900 dark:hover:text-white">
-                    <span class="material-symbols-outlined text-lg">close</span>
+                <button id="anno-close" class="text-xl font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white leading-none">
+                    ✕
                 </button>
             </div>
             <div id="anno-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar"></div>
@@ -41,7 +41,7 @@ class Annotator {
         // Sidebar Toggle Button
         this.toggleBtn = document.createElement('button');
         this.toggleBtn.className = 'fixed right-6 bottom-24 w-12 h-12 bg-primary text-white rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all z-40 flex items-center justify-center';
-        this.toggleBtn.innerHTML = '<span class="material-symbols-outlined">bookmarks</span>';
+        this.toggleBtn.innerHTML = '🔖';
         document.body.appendChild(this.toggleBtn);
         
         // Note Input Modal
@@ -212,11 +212,11 @@ class Annotator {
             item.className = 'group bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl p-3 relative';
             item.innerHTML = `
                 <div class="text-xs text-slate-800 dark:text-slate-200 line-clamp-3 mb-2 px-1 border-l-2 border-yellow-400 pl-2">${anno.text}</div>
-                ${anno.note ? `<div class="bg-white dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-400 p-2 rounded-lg border border-slate-100 dark:border-slate-800 flex gap-2"><span class="material-symbols-outlined text-[14px]">comment</span><span>${anno.note}</span></div>` : ''}
+                ${anno.note ? `<div class="bg-white dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-400 p-2 rounded-lg border border-slate-100 dark:border-slate-800 flex gap-2"><span>💬</span><span>${anno.note}</span></div>` : ''}
                 <div class="mt-2 flex justify-between items-center">
                     <span class="text-[10px] text-slate-400 font-medium">${new Date(anno.timestamp).toLocaleDateString()}</span>
                     <button class="anno-del-btn text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100" data-id="${anno.id}">
-                        <span class="material-symbols-outlined text-sm">delete</span>
+                        🗑
                     </button>
                 </div>
             `;
