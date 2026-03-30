@@ -373,12 +373,105 @@ Section-by-Section Analysis
     const paperId = urlParams.get('paperId');
 
     function openCitationModal() {
+        if (!paperId) { 
+            if (window.showToast) showToast('No paper loaded', 'error'); 
+            return; 
+        }
         document.getElementById('citationModal').classList.add('active');
         updateCitationText();
     }
 
     function closeCitationModal() {
         document.getElementById('citationModal').classList.remove('active');
+    }
+
+    function openCritiquePanel() {
+        if (!paperId) { 
+            if (window.showToast) showToast('No paper loaded', 'error'); 
+            return; 
+        }
+        const critiquePanel = document.getElementById('critiquePanel');
+        const critiqueMarkdown = document.getElementById('critiqueMarkdown');
+        const critiqueSpinner = document.getElementById('critiqueSpinner');
+        
+        critiquePanel.classList.add('open');
+        if (window.critiqueStreamCache) return; // already loaded
+
+        critiqueSpinner.style.display = 'flex';
+        critiqueMarkdown.innerHTML = '';
+        
+        fetch(`/api/critique/${paperId}`, { method: 'POST' })
+        .then(async response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            critiqueSpinner.style.display = 'none';
+            window.critiqueStreamCache = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split('\n\n');
+                buffer = parts.pop();
+
+                for (const part of parts) {
+                    if (!part.startsWith('data:')) continue;
+                    try {
+                        const payload = JSON.parse(part.slice(5).trim());
+                        if (payload.chunk) {
+                            window.critiqueStreamCache += payload.chunk;
+                            critiqueMarkdown.innerHTML = marked.parse(window.critiqueStreamCache);
+                        }
+                        if (payload.error) showToast(payload.error, 'error');
+                    } catch (e) {}
+                }
+            }
+        })
+        .catch(err => {
+            critiqueSpinner.style.display = 'none';
+            critiqueMarkdown.innerHTML = `<p class="text-red-500">Failed to stream critique: ${err.message}</p>`;
+        });
+    }
+
+    function closeCritiquePanel() {
+        document.getElementById('critiquePanel').classList.remove('open');
+    }
+
+    async function fetchFlashcards() {
+        if (!paperId) { 
+            if (window.showToast) showToast('No paper loaded', 'error'); 
+            return; 
+        }
+        const btn = document.getElementById('generateCardsBtn');
+        const loading = document.getElementById('fcLoading');
+        const container = document.getElementById('fcContainer');
+        const nav = document.getElementById('fcNav');
+        
+        btn.style.display = 'none';
+        loading.style.display = 'block';
+
+        try {
+            const res = await fetch(`/api/flashcards/${paperId}`);
+            if (!res.ok) throw new Error("API not available");
+            const data = await res.json();
+            
+            if (data.flashcards && data.flashcards.length > 0) {
+                window.flashcards = data.flashcards;
+                window.currentCardIndex = 0;
+                loading.style.display = 'none';
+                container.style.display = 'block';
+                nav.style.display = 'flex';
+                renderCurrentCard();
+            } else {
+                throw new Error("No flashcards returned");
+            }
+        } catch (error) {
+            loading.style.display = 'none';
+            btn.style.display = 'flex'; // show button again to retry
+            showToast(`Flashcard Error: ${error.message}`, 'error', 4000);
+        }
     }
 
     function switchTab(tab) {
@@ -569,96 +662,16 @@ Section-by-Section Analysis
         }
     });
 
-    // ==== Methodology Critique Logic ====
-    const critiquePanel = document.getElementById('critiquePanel');
-    const critiqueMarkdown = document.getElementById('critiqueMarkdown');
-    const critiqueSpinner = document.getElementById('critiqueSpinner');
-    let critiqueStreamCache = "";
 
-    function openCritiquePanel() {
-        if (!paperId) return;
-        critiquePanel.classList.add('open');
-        if (critiqueStreamCache) return; // already loaded
 
-        critiqueSpinner.style.display = 'flex';
-        critiqueMarkdown.innerHTML = '';
-        
-        fetch(`/api/critique/${paperId}`, { method: 'POST' })
-        .then(async response => {
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-            critiqueSpinner.style.display = 'none';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const parts = buffer.split('\n\n');
-                buffer = parts.pop();
-
-                for (const part of parts) {
-                    if (!part.startsWith('data:')) continue;
-                    try {
-                        const payload = JSON.parse(part.slice(5).trim());
-                        if (payload.chunk) {
-                            critiqueStreamCache += payload.chunk;
-                            critiqueMarkdown.innerHTML = marked.parse(critiqueStreamCache);
-                        }
-                        if (payload.error) showToast(payload.error, 'error');
-                    } catch (e) {}
-                }
-            }
-        })
-        .catch(err => {
-            critiqueSpinner.style.display = 'none';
-            critiqueMarkdown.innerHTML = `<p class="text-red-500">Failed to stream critique: ${err.message}</p>`;
-        });
-    }
-
-    function closeCritiquePanel() {
-        critiquePanel.classList.remove('open');
-    }
-
-    // ==== Flashcards Logic ====
-    let flashcards = [];
-    let currentCardIndex = 0;
+    // ==== Flashcards State & Rendering ====
+    window.flashcards = [];
+    window.currentCardIndex = 0;
     let isFlipping = false;
 
-    async function fetchFlashcards() {
-        if (!paperId) { showToast('No paper loaded', 'error'); return; }
-        const btn = document.getElementById('generateCardsBtn');
-        const loading = document.getElementById('fcLoading');
-        const container = document.getElementById('fcContainer');
-        const nav = document.getElementById('fcNav');
-        
-        btn.style.display = 'none';
-        loading.style.display = 'block';
-
-        try {
-            const res = await fetch(`/api/flashcards/${paperId}`);
-            if (!res.ok) throw new Error("API not available");
-            const data = await res.json();
-            
-            if (data.flashcards && data.flashcards.length > 0) {
-                flashcards = data.flashcards;
-                currentCardIndex = 0;
-                loading.style.display = 'none';
-                container.style.display = 'block';
-                nav.style.display = 'flex';
-                renderCurrentCard();
-            } else {
-                throw new Error("No flashcards returned");
-            }
-        } catch (error) {
-            loading.style.display = 'none';
-            btn.style.display = 'flex'; // show button again to retry
-            showToast(`Flashcard Error: ${error.message}`, 'error', 4000);
-        }
-    }
-
     function renderCurrentCard() {
+        const flashcards = window.flashcards;
+        const currentCardIndex = window.currentCardIndex;
         if (!flashcards.length) return;
         const cardElement = document.getElementById('fcCard');
         const front = document.getElementById('fcFront');
@@ -688,25 +701,27 @@ Section-by-Section Analysis
     }
 
     function nextCard() {
-        if (currentCardIndex < flashcards.length - 1) {
-            currentCardIndex++;
+        const flashcards = window.flashcards;
+        if (window.currentCardIndex < flashcards.length - 1) {
+            window.currentCardIndex++;
             renderCurrentCard();
         }
     }
 
     function prevCard() {
-        if (currentCardIndex > 0) {
-            currentCardIndex--;
+        if (window.currentCardIndex > 0) {
+            window.currentCardIndex--;
             renderCurrentCard();
         }
     }
 
     function shuffleCards() {
+        const flashcards = window.flashcards;
         for (let i = flashcards.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
         }
-        currentCardIndex = 0;
+        window.currentCardIndex = 0;
         renderCurrentCard();
     }
 </script>
