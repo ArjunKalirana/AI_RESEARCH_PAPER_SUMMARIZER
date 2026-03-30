@@ -13,14 +13,36 @@ const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY
 });
 
-// Timeout utility — prevents hanging when Groq API is degraded or quota is exhausted
-function withTimeout(promise, ms = 60000, label = 'Groq API') {
-  return Promise.race([
-    promise,
+// Timeout-protected stream reader — prevents hanging when Groq opens connection but sends no data
+async function readStreamWithTimeout(streamPromise, onChunk, idleTimeoutMs = 30000) {
+  const stream = await Promise.race([
+    streamPromise,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+      setTimeout(() => reject(new Error('Groq connection timed out')), idleTimeoutMs)
     )
   ]);
+
+  let fullText = "";
+  const reader = stream[Symbol.asyncIterator]();
+  
+  while (true) {
+    const result = await Promise.race([
+      reader.next(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Groq stream idle — no data for 30s')), idleTimeoutMs)
+      )
+    ]);
+
+    if (result.done) break;
+
+    const content = result.value.choices[0]?.delta?.content || "";
+    if (content) {
+      fullText += content;
+      if (onChunk) onChunk(content);
+    }
+  }
+
+  return fullText;
 }
 
 // ============================================================
@@ -46,17 +68,10 @@ async function withRetry(fn, maxRetries = 3, baseDelay = 1000) {
 // GUARDRAIL 1: Relaxed Grounding
 // ============================================================
 function isQueryGrounded(query, contextBlocks) {
+  // If FAISS returned chunks, the query is grounded — FAISS already did semantic matching.
+  // Only reject if there are literally zero context blocks.
   if (!contextBlocks || contextBlocks.length === 0) return false;
-
-  const combinedContext = contextBlocks
-    .map((c) => c.chunkText.toLowerCase())
-    .join(" ");
-
-  const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-  if (queryWords.length === 0) return true; 
-
-  const match = queryWords.some(word => combinedContext.includes(word));
-  return match;
+  return true;
 }
 
 // ============================================================
@@ -105,25 +120,15 @@ RULES:
   });
 
   try {
-    const stream = await withTimeout(
+    const fullText = await readStreamWithTimeout(
       groq.chat.completions.create({
         model: CHAT_MODEL,
         messages: messages,
         temperature: 0.2,
         stream: true,
       }),
-      60000,
-      'Chat stream'
+      onChunk
     );
-
-    let fullText = "";
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || "";
-      if (content) {
-        fullText += content;
-        if (onChunk) onChunk(content);
-      }
-    }
     return extractAnswerFromResponse(fullText);
   } catch (error) {
     console.error("❌ Groq API Error:", error.message);
@@ -131,25 +136,16 @@ RULES:
         console.log("🔄 429 Detected: Falling back to 8B model for chat...");
         // Notify user before generating fallback response
         if (onChunk) onChunk('\n\n[⚡ Switched to fast model due to rate limits — response may be briefer]\n\n');
-        try {
-           const stream = await withTimeout(
-              groq.chat.completions.create({
-                  model: SUMMARY_MODEL,
-                  messages: messages,
-                  temperature: 0.2,
-                  stream: true,
-              }),
-              60000,
-              'Chat fallback stream'
-           );
-          let fallbackText = '';
-          for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-              fallbackText += content;
-              if (onChunk) onChunk(content);
-            }
-          }
+         try {
+          const fallbackText = await readStreamWithTimeout(
+            groq.chat.completions.create({
+                model: SUMMARY_MODEL,
+                messages: messages,
+                temperature: 0.2,
+                stream: true,
+            }),
+            onChunk
+          );
           return extractAnswerFromResponse(fallbackText);
         } catch (fallbackErr) {
           console.error('❌ Fallback model also failed:', fallbackErr.message);
@@ -364,7 +360,7 @@ RULES:
   ];
 
   try {
-    const stream = await withTimeout(
+    const fullText = await readStreamWithTimeout(
       groq.chat.completions.create({
         model: CHAT_MODEL,
         messages: messages,
@@ -372,18 +368,8 @@ RULES:
         max_tokens: 1000,
         stream: true,
       }),
-      60000,
-      'Comparison stream'
+      streamCallback
     );
-
-    let fullText = "";
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || "";
-      if (content) {
-        fullText += content;
-        if (streamCallback) streamCallback(content);
-      }
-    }
     return fullText;
   } catch (error) {
     console.error("❌ Groq Comparison Error:", error.message);
@@ -425,7 +411,7 @@ RULES:
   ];
 
   try {
-    const stream = await withTimeout(
+    const fullText = await readStreamWithTimeout(
       groq.chat.completions.create({
         model: CHAT_MODEL,
         messages: messages,
@@ -433,18 +419,8 @@ RULES:
         max_tokens: 1500,
         stream: true,
       }),
-      60000,
-      'Literature review stream'
+      streamCallback
     );
-
-    let fullText = "";
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || "";
-      if (content) {
-        fullText += content;
-        if (streamCallback) streamCallback(content);
-      }
-    }
     return fullText;
   } catch (error) {
     console.error("❌ Groq Lit Review Error:", error.message);
@@ -491,7 +467,7 @@ RULES:
   ];
 
   try {
-    const stream = await withTimeout(
+    const fullText = await readStreamWithTimeout(
       groq.chat.completions.create({
         model: CHAT_MODEL,
         messages: messages,
@@ -499,18 +475,8 @@ RULES:
         max_tokens: 1000,
         stream: true,
       }),
-      60000,
-      'Critique stream'
+      streamCallback
     );
-
-    let fullText = "";
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || "";
-      if (content) {
-        fullText += content;
-        if (streamCallback) streamCallback(content);
-      }
-    }
     return fullText;
   } catch (error) {
     console.error("❌ Groq Critique Error:", error.message);

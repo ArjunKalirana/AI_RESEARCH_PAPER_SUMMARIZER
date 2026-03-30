@@ -76,6 +76,13 @@ async function askQuestion(req, res) {
     res.setHeader('X-Accel-Buffering', 'no'); 
     res.flushHeaders();
 
+    // Keepalive heartbeat — Railway kills idle SSE connections after ~30s
+    const keepalive = setInterval(() => {
+        if (!isStreamClosed && !res.writableEnded) {
+            res.write(': keepalive\n\n');
+        }
+    }, 10000);
+
     // Generate unique session ID for multi-paper chat history
     const sessionId = targetPaperIds.sort().join('_');
     const chatHistory = await getChatHistory(sessionId);
@@ -148,12 +155,14 @@ async function askQuestion(req, res) {
     }
 
     if (hybridContext.length === 0) {
+      clearInterval(keepalive);
       sendSSE({ chunk: "I am not confident enough to answer this based on the paper context." });
       sendSSE({ final: true, confidenceScore: 0.0, confidenceLabel: "Low", sources: [] });
       return res.end();
     }
 
-    // ── Answer Generation ────────────────────────────────────────────────────
+    // ── Answer Generation ──────────────────────────────────────────────────────────
+    clearInterval(keepalive); // LLM streaming takes over keepalive duty
     // If multi-paper, use generateComparison for better citation formatting
     const genFunc = targetPaperIds.length > 1 ? generateSummary : generateSummary;
     // Actually, generateSummary is already good enough if we label the blocks.
@@ -210,6 +219,7 @@ async function askQuestion(req, res) {
     }
 
   } catch (error) {
+    clearInterval(keepalive);
     console.error('❌ Ask API Error:', error);
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to process question' });

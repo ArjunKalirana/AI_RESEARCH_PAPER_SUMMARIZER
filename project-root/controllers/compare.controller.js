@@ -36,6 +36,13 @@ async function compareQuestion(req, res) {
         res.setHeader('X-Accel-Buffering', 'no');
         res.flushHeaders();
 
+        // Keepalive heartbeat — Railway kills idle SSE connections after ~30s
+        const keepalive = setInterval(() => {
+            if (!isStreamClosed && !res.writableEnded) {
+                res.write(': keepalive\n\n');
+            }
+        }, 10000);
+
         // No history in comparison mode — use question directly, skip the Groq call
         const refinedQuery = question;
 
@@ -140,10 +147,12 @@ async function compareQuestion(req, res) {
         if (truncatedContext.length === 0) {
             sendSSE({ chunk: "I couldn't find enough relevant information across these papers to make a comparison." });
             sendSSE({ final: true, sources: [], paperLabels: {} });
+            clearInterval(keepalive);
             return res.end();
         }
 
         // 4. Generate Comparison with Streaming
+        clearInterval(keepalive); // LLM streaming takes over keepalive duty
         const answer = await generateComparison(question, truncatedContext, (chunk) => {
             sendSSE({ chunk });
         });
@@ -174,6 +183,7 @@ async function compareQuestion(req, res) {
         }
 
     } catch (error) {
+        clearInterval(keepalive);
         console.error('❌ Compare API Error:', error);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to process comparison' });

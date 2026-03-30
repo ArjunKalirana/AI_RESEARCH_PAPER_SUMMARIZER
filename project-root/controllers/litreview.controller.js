@@ -20,6 +20,13 @@ exports.generateLitReview = async (req, res) => {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
+    // Keepalive heartbeat — Railway kills idle SSE connections after ~30s
+    const keepalive = setInterval(() => {
+        if (!isClosed && !res.writableEnded) {
+            res.write(': keepalive\n\n');
+        }
+    }, 10000);
+
     const contextParts = [];
     const missing = [];
 
@@ -44,9 +51,12 @@ exports.generateLitReview = async (req, res) => {
     }
 
     if (contextParts.length < 2) {
+      clearInterval(keepalive);
       res.write(`data: ${JSON.stringify({ error: 'Not enough papers with processable data. Please re-upload the missing papers.' })}\n\n`);
       return res.end();
     }
+
+    clearInterval(keepalive); // LLM streaming takes over keepalive duty
 
     await generateLiteratureReview(contextParts, (chunk) => {
       if (!isClosed && !res.writableEnded) {
