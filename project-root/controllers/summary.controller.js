@@ -37,6 +37,10 @@ async function getSummary(req, res) {
     };
 
     res.json(responsePayload);
+    
+    // Warm up immediately so first user query is fast
+    const { warmUpIndex } = require('../services/faissService');
+    warmUpIndex(cleanPaperId).catch(() => {}); // Fire and forget
   } catch (error) {
     console.error('❌ Summary Route Error:', error);
     res.status(500).json({ error: 'Failed to retrieve paper summary' });

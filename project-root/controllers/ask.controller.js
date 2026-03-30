@@ -79,7 +79,11 @@ async function askQuestion(req, res) {
     // Generate unique session ID for multi-paper chat history
     const sessionId = targetPaperIds.sort().join('_');
     const chatHistory = await getChatHistory(sessionId);
-    const refinedQuery = await rewriteQuery(question, chatHistory);
+    
+    // Skip the Groq rewrite call entirely on first message — saves 3-8s
+    const refinedQuery = chatHistory.length > 0 
+      ? await rewriteQuery(question, chatHistory)
+      : question;
 
     // ── Retrieval ────────────────────────────────────────────────────────────
     const hybridContext = [];

@@ -107,4 +107,25 @@ async function rebuildIndicesFromDisk() {
   console.log("✅ [FAISS-Rebuild] Finished re-indexing process.");
 }
 
-module.exports = { indexChunks, searchQuery, searchQueryReranked, computeSimilarity, rebuildIndicesFromDisk };
+async function warmUpIndex(index_id) {
+  try {
+    console.log(`🔥 [FAISS] Warming up index: ${index_id}`);
+    await axios.post(`${FAISS_URL}/search-reranked`, {
+      index_id,
+      query: "introduction methodology results conclusion",
+      k: 1,
+    }, { timeout: 45000 }); // Long timeout — first load from disk can take 30s
+    console.log(`✅ [FAISS] Index warmed: ${index_id}`);
+  } catch (err) {
+    console.log(`[FAISS] Warm-up failed (non-critical): ${err.message}`);
+  }
+}
+
+module.exports = { 
+  indexChunks, 
+  searchQuery, 
+  searchQueryReranked, 
+  computeSimilarity, 
+  rebuildIndicesFromDisk,
+  warmUpIndex 
+};

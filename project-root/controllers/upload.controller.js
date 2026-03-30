@@ -6,7 +6,7 @@ const { extractSections } = require('../services/sectionExtractor');
 const { chunkText } = require('../services/chunker');
 const { normalizePaperJSON, validatePaperJSON } = require('../services/paperNormalizer');
 const { extractMetadata } = require('../services/metadataExtractor');
-const { indexChunks } = require('../services/faissService');
+const { indexChunks, warmUpIndex } = require('../services/faissService');
 const { runQuery } = require('../services/neo4j.service');
 const { generateSummary, generateStructuredSummary, summarizePaperSection } = require('../services/llmService');
 
@@ -129,6 +129,8 @@ async function uploadPaper(req, res) {
     if (shouldAbort()) return;
 
     await indexChunks(chunks, paperId);
+    // Warm up immediately so first user query is fast
+    warmUpIndex(paperId).catch(() => {}); // Fire and forget — don't await
 
     // Build Knowledge Graph
     await runQuery(`MERGE (p:ResearchPaper {paperId: $paperId}) SET p.title = $title, p.year = $year`, { paperId, title, year });
