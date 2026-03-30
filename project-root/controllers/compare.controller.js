@@ -11,6 +11,7 @@ const processedPath = path.join(__dirname, '../data/processed_papers');
  */
 async function compareQuestion(req, res) {
     let isStreamClosed = false;
+    let keepalive = null;
     req.on('close', () => { isStreamClosed = true; });
 
     const sendSSE = (data) => {
@@ -37,7 +38,7 @@ async function compareQuestion(req, res) {
         res.flushHeaders();
 
         // Keepalive heartbeat — Railway kills idle SSE connections after ~30s
-        const keepalive = setInterval(() => {
+        keepalive = setInterval(() => {
             if (!isStreamClosed && !res.writableEnded) {
                 res.write(': keepalive\n\n');
             }

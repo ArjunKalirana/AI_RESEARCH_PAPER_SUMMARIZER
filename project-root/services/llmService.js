@@ -1,7 +1,8 @@
 const Groq = require("groq-sdk");
 
-// --- MODEL TIERING (Fixes 429 Rate Limits) ---
-const CHAT_MODEL = "llama-3.3-70b-versatile";     // For high-quality chat
+// --- MODEL TIERING ---
+// Llama 4 Scout: 500K TPD vs 70B's 100K TPD — 5x more daily capacity, prevents 429 crashes
+const CHAT_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 const SUMMARY_MODEL = "llama-3.1-8b-instant";      // For high-volume tasks (Higher rate limits)
 
 if (!process.env.GROQ_API_KEY) {

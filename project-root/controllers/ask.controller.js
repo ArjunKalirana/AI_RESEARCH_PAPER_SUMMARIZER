@@ -43,6 +43,7 @@ function getConfidenceLabel(score) {
 ================================ */
 async function askQuestion(req, res) {
   let isStreamClosed = false;
+  let keepalive = null;
   
   req.on('close', () => {
     isStreamClosed = true;
