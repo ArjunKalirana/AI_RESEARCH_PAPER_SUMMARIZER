@@ -256,28 +256,6 @@
 </div>
 </div>
 
-<!-- Paper Stats Dashboard -->
-<div id="statsRow" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10 animate-in [animation-delay:50ms]" style="display:none;">
-    <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 flex flex-col gap-2 shadow-sm">
-        <span class="text-3xl">📄</span>
-        <span id="stat-pages" class="text-3xl font-black text-slate-900 dark:text-white">—</span>
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Est. Pages</span>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 flex flex-col gap-2 shadow-sm">
-        <span class="text-3xl">🧩</span>
-        <span id="stat-sections" class="text-3xl font-black text-slate-900 dark:text-white">—</span>
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Sections</span>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 flex flex-col gap-2 shadow-sm">
-        <span class="text-3xl">✂️</span>
-        <span id="stat-chunks" class="text-3xl font-black text-slate-900 dark:text-white">—</span>
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Chunks Indexed</span>
-    </div>
-    <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 flex flex-col gap-2 shadow-sm">
-        <span class="text-3xl">⏱️</span>
-        <span id="stat-readtime" class="text-3xl font-black text-slate-900 dark:text-white">—</span>
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Min Read Time</span>
-    </div>
 </div>
 
 <!-- Main Summary -->
@@ -388,6 +366,10 @@ Section-by-Section Analysis
     let currentPaperData = null;
     let currentTab = 'BibTeX';
 
+    // Make paperId globally accessible for onclick handlers
+    const urlParams = new URLSearchParams(window.location.search);
+    const paperId = urlParams.get('paperId');
+
     function openCitationModal() {
         document.getElementById('citationModal').classList.add('active');
         updateCitationText();
@@ -480,8 +462,7 @@ Section-by-Section Analysis
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const paperId = urlParams.get('paperId');
+        // paperId already declared globally above
 
         if (!paperId) {
             showToast('No paper ID found — please upload a paper first.', 'error', 4000);
@@ -665,7 +646,7 @@ Section-by-Section Analysis
     let isFlipping = false;
 
     async function fetchFlashcards() {
-        if (!paperId) return;
+        if (!paperId) { showToast('No paper loaded', 'error'); return; }
         const btn = document.getElementById('generateCardsBtn');
         const loading = document.getElementById('fcLoading');
         const container = document.getElementById('fcContainer');
@@ -676,7 +657,7 @@ Section-by-Section Analysis
 
         try {
             const res = await fetch(`/api/flashcards/${paperId}`);
-            if (!res.ok) throw new Error("Failed to load cards");
+            if (!res.ok) throw new Error("API not available");
             const data = await res.json();
             
             if (data.flashcards && data.flashcards.length > 0) {
@@ -690,8 +671,9 @@ Section-by-Section Analysis
                 throw new Error("No flashcards returned");
             }
         } catch (error) {
-            loading.innerHTML = `<span class="text-red-500 text-sm font-bold">Error: ${error.message}</span>`;
+            loading.style.display = 'none';
             btn.style.display = 'flex'; // show button again to retry
+            showToast('Flashcard generation coming soon! Backend endpoint needed.', 'info', 4000);
         }
     }
 
