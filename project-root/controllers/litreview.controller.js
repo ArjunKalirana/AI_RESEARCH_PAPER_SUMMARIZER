@@ -34,8 +34,8 @@ exports.generateLitReview = async (req, res) => {
         title: p.title || 'Untitled',
         year: p.year,
         authors: p.authors?.map(a => a.authorName || a) || [],
-        summary: p.summaryPreview || '',
-        conclusion: p.sections?.conclusion || p.sections?.results || ''
+        summary: (p.summaryPreview || '').slice(0, 5000),
+        conclusion: (p.sections?.conclusion || p.sections?.results || '').slice(0, 5000)
       });
     }
 

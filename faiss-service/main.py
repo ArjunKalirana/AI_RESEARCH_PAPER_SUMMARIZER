@@ -251,6 +251,32 @@ def health_check():
                          if os.path.exists("index_store") else 0
     }
 
+@app.delete("/delete-index/{index_id}")
+def delete_index(index_id: str):
+    """
+    Delete an index and its manifest from disk.
+    Called by the Node.js library service when a paper is deleted.
+    """
+    import glob
+    deleted = []
+    
+    # 1. Remove from in-memory cache
+    if index_id in indices:
+        del indices[index_id]
+        logger.info(f"🗑️ [delete] Removed {index_id} from in-memory cache")
+        
+    # 2. Cleanup files from disk
+    for pattern in [f"{INDEX_STORE_DIR}/{index_id}.index", f"{INDEX_STORE_DIR}/{index_id}.manifest.json"]:
+        for f in glob.glob(pattern):
+            try:
+                os.remove(f)
+                deleted.append(f)
+                logger.info(f"🗑️ [delete] Deleted disk file: {f}")
+            except Exception as e:
+                logger.error(f"❌ [delete] Error removing file {f}: {e}")
+                
+    return {"success": True, "deleted": deleted, "index_id": index_id}
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8001))

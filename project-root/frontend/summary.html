@@ -673,7 +673,7 @@ Section-by-Section Analysis
         } catch (error) {
             loading.style.display = 'none';
             btn.style.display = 'flex'; // show button again to retry
-            showToast('Flashcard generation coming soon! Backend endpoint needed.', 'info', 4000);
+            showToast(`Flashcard Error: ${error.message}`, 'error', 4000);
         }
     }
 
