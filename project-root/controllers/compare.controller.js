@@ -154,10 +154,12 @@ async function compareQuestion(req, res) {
 
         // 4. Generate Comparison with Streaming
         clearInterval(keepalive); // LLM streaming takes over keepalive duty
+        console.log(`📊 [Compare] Context ready: ${truncatedContext.length} chunks, ${totalWords} words. Starting LLM...`);
         const answer = await generateComparison(question, truncatedContext, (chunk) => {
             sendSSE({ chunk });
         });
 
+        console.log(`✅ [Compare] Answer generated: ${typeof answer === 'string' ? answer.length : 0} chars`);
         if (isStreamClosed) return;
 
         // 5. Send final event immediately — don't block on suggestions

@@ -355,6 +355,7 @@
             const decoder = new TextDecoder();
             let fullText = "";
             let receivedFinal = false;
+            let buffer = "";
 
             while (true) {
                 const { value, done } = await reader.read();
@@ -365,60 +366,65 @@
                     break;
                 }
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
+                buffer += decoder.decode(value, { stream: true });
+                const events = buffer.split('\n\n');
+                buffer = events.pop(); // Keep incomplete event in buffer
 
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
+                for (const event of events) {
+                    if (!event.startsWith('data: ')) continue; // Skip keepalive comments
+                    
+                    try {
+                        const data = JSON.parse(event.substring(6));
                             
-                            if (data.warning) {
-                                const warningBanner = document.createElement('div');
-                                warningBanner.style.cssText = `
-                                  background:#fffbeb;border:1px solid #fef3c7;color:#92400e;
-                                  border-radius:12px;padding:12px 16px;font-size:12px;font-weight:600;
-                                  margin-bottom:12px;display:flex;align-items:center;gap:10px;
-                                  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-                                `;
-                                warningBanner.innerHTML = `
-                                  <span class="material-icons" style="font-size:18px;color:#d97706">warning</span>
-                                  <div style="flex:1;">${data.warning}</div>
-                                  <span style="font-[10px];background:#fef3c7;padding:2px 8px;border-radius:20px;color:#b45309;white-space:nowrap;">Re-index Needed</span>
-                                `;
-                                streamingAnswer.parentElement?.insertBefore(warningBanner, streamingAnswer);
-                            }
-
-                            if (data.chunk) {
-                                if (fullText === "") streamingAnswer.innerHTML = "";
-                                fullText += data.chunk;
-                                streamingAnswer.innerHTML = marked.parse(fullText);
-                            }
-
-                            if (data.final) {
-                                receivedFinal = true;
-                                renderLegend(data.paperLabels);
-                                renderSources(data.sources);
-                                if (data.suggestions) renderSuggestions(data.suggestions);
-
-                                if (data.paperLabels) {
-                                    const labelsUsed = Object.entries(data.paperLabels)
-                                        .map(([label, title]) => `<span style="color:#475569;font-weight:700;">${label}:</span> "${title}"`)
-                                        .join(' &nbsp;·&nbsp; ');
-                                    streamingAnswer.insertAdjacentHTML('beforeend', 
-                                        `<div style="font-size:11px;color:#94a3b8;margin-top:20px;padding-top:16px;border-top:1px solid #f1f5f9;line-height:1.6;">
-                                            <div style="text-transform:uppercase;letter-spacing:0.1em;font-weight:900;margin-bottom:4px;font-size:9px;">Scope of Comparison</div>
-                                            ${labelsUsed}
-                                        </div>`);
-                                }
-                            }
-
-                            if (data.error) {
-                                streamingAnswer.insertAdjacentHTML('beforeend', `<div class="text-red-500 font-bold mt-4">${data.error}</div>`);
-                            }
-                        } catch (e) {
-                            console.error("SSE Parse Error", e);
+                        if (data.warning) {
+                            const warningBanner = document.createElement('div');
+                            warningBanner.style.cssText = `
+                              background:#fffbeb;border:1px solid #fef3c7;color:#92400e;
+                              border-radius:12px;padding:12px 16px;font-size:12px;font-weight:600;
+                              margin-bottom:12px;display:flex;align-items:center;gap:10px;
+                              box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                            `;
+                            warningBanner.innerHTML = `
+                              <span class="material-icons" style="font-size:18px;color:#d97706">warning</span>
+                              <div style="flex:1;">${data.warning}</div>
+                              <span style="font-[10px];background:#fef3c7;padding:2px 8px;border-radius:20px;color:#b45309;white-space:nowrap;">Re-index Needed</span>
+                            `;
+                            streamingAnswer.parentElement?.insertBefore(warningBanner, streamingAnswer);
                         }
+
+                        if (data.chunk) {
+                            if (fullText === "") streamingAnswer.innerHTML = "";
+                            fullText += data.chunk;
+                            streamingAnswer.innerHTML = marked.parse(fullText);
+                        }
+
+                        if (data.final) {
+                            receivedFinal = true;
+                            renderLegend(data.paperLabels);
+                            renderSources(data.sources);
+                            if (data.suggestions) renderSuggestions(data.suggestions);
+
+                            if (data.paperLabels) {
+                                const labelsUsed = Object.entries(data.paperLabels)
+                                    .map(([label, title]) => `<span style="color:#475569;font-weight:700;">${label}:</span> "${title}"`)
+                                    .join(' &nbsp;·&nbsp; ');
+                                streamingAnswer.insertAdjacentHTML('beforeend', 
+                                    `<div style="font-size:11px;color:#94a3b8;margin-top:20px;padding-top:16px;border-top:1px solid #f1f5f9;line-height:1.6;">
+                                        <div style="text-transform:uppercase;letter-spacing:0.1em;font-weight:900;margin-bottom:4px;font-size:9px;">Scope of Comparison</div>
+                                        ${labelsUsed}
+                                    </div>`);
+                            }
+                        }
+
+                        if (data.suggestions) {
+                            renderSuggestions(data.suggestions);
+                        }
+
+                        if (data.error) {
+                            streamingAnswer.insertAdjacentHTML('beforeend', `<div class="text-red-500 font-bold mt-4">${data.error}</div>`);
+                        }
+                    } catch (e) {
+                        console.error("SSE Parse Error", e);
                     }
                 }
             }

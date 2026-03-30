@@ -16,14 +16,24 @@ const groq = new Groq({
 
 // Timeout-protected stream reader — prevents hanging when Groq opens connection but sends no data
 async function readStreamWithTimeout(streamPromise, onChunk, idleTimeoutMs = 30000) {
-  const stream = await Promise.race([
-    streamPromise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Groq connection timed out')), idleTimeoutMs)
-    )
-  ]);
+  console.log(`  ⏳ [LLM] Waiting for Groq stream connection (timeout: ${idleTimeoutMs/1000}s)...`);
+  
+  let stream;
+  try {
+    stream = await Promise.race([
+      streamPromise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Groq connection timed out')), idleTimeoutMs)
+      )
+    ]);
+    console.log('  ✅ [LLM] Stream connection established');
+  } catch (connErr) {
+    console.error('  ❌ [LLM] Stream connection FAILED:', connErr.message);
+    throw connErr;
+  }
 
   let fullText = "";
+  let chunkCount = 0;
   const reader = stream[Symbol.asyncIterator]();
   
   while (true) {
@@ -38,11 +48,13 @@ async function readStreamWithTimeout(streamPromise, onChunk, idleTimeoutMs = 300
 
     const content = result.value.choices[0]?.delta?.content || "";
     if (content) {
+      chunkCount++;
       fullText += content;
       if (onChunk) onChunk(content);
     }
   }
 
+  console.log(`  ✅ [LLM] Stream complete: ${chunkCount} chunks, ${fullText.length} chars`);
   return fullText;
 }
 
@@ -86,7 +98,7 @@ function extractAnswerFromResponse(rawText) {
 // MAIN FUNCTIONS
 // ============================================================
 async function generateSummary(query, contextBlocks, chatHistory = [], onChunk = null) {
-  console.log(`🧠 [Groq] Processing question: "${query}"`);
+  console.log(`🧠 [Groq] Processing question: "${query}" | Model: ${CHAT_MODEL} | Context blocks: ${contextBlocks.length}`);
 
   if (!isQueryGrounded(query, contextBlocks)) {
     console.log("⚠️ Query not grounded. Rejecting.");
@@ -152,7 +164,10 @@ RULES:
           console.error('❌ Fallback model also failed:', fallbackErr.message);
         }
     }
-    return "Failed to connect to the AI service. Please try again.";
+    // CRITICAL: Stream error to user so they don't see "Thinking..." forever
+    const errorMsg = `⚠️ AI service error: ${error.message}. Please try again in a moment.`;
+    if (onChunk) onChunk(errorMsg);
+    return errorMsg;
   }
 }
 
@@ -325,7 +340,7 @@ async function generateFollowUpSuggestions(question, answer, paperTitle) {
 }
 
 async function generateComparison(question, labeledContext, streamCallback) {
-  console.log("🧠 [Groq] Generating multi-paper comparison...");
+  console.log(`🧠 [Groq] Generating multi-paper comparison... | Model: ${CHAT_MODEL} | Context chunks: ${labeledContext.length}`);
   
   // Group context by label
   const groupedContext = {};
@@ -374,12 +389,28 @@ RULES:
     return fullText;
   } catch (error) {
     console.error("❌ Groq Comparison Error:", error.message);
-    throw error;
+    // Fallback to 8B model on rate limit
+    if (error.status === 429 || error.message?.includes('429')) {
+      console.log('🔄 429 Detected: Falling back to 8B model for comparison...');
+      if (streamCallback) streamCallback('\n\n[⚡ Switched to fast model due to rate limits]\n\n');
+      try {
+        const fallbackText = await readStreamWithTimeout(
+          groq.chat.completions.create({ model: SUMMARY_MODEL, messages, temperature: 0.3, max_tokens: 1000, stream: true }),
+          streamCallback
+        );
+        return fallbackText;
+      } catch (fbErr) {
+        console.error('❌ Comparison fallback also failed:', fbErr.message);
+      }
+    }
+    const errorMsg = `⚠️ Comparison failed: ${error.message}`;
+    if (streamCallback) streamCallback(errorMsg);
+    return errorMsg;
   }
 }
 
 async function generateLiteratureReview(contextParts, streamCallback) {
-  console.log("🧠 [Groq] Generating automated literature review...");
+  console.log(`🧠 [Groq] Generating automated literature review... | Model: ${CHAT_MODEL} | Papers: ${contextParts.length}`);
   
   const contextText = contextParts.map((p, i) =>
     `[Paper ${i + 1}] "${p.title}" (${p.year || 'n.d.'}) by ${(p.authors || []).slice(0, 2).join(', ')}:\nAbstract/Summary: ${p.summary || ''}\nKey Findings: ${p.conclusion || ''}`
@@ -425,7 +456,23 @@ RULES:
     return fullText;
   } catch (error) {
     console.error("❌ Groq Lit Review Error:", error.message);
-    throw error;
+    // Fallback to 8B model on rate limit
+    if (error.status === 429 || error.message?.includes('429')) {
+      console.log('🔄 429 Detected: Falling back to 8B model for lit review...');
+      if (streamCallback) streamCallback('\n\n[⚡ Switched to fast model due to rate limits]\n\n');
+      try {
+        const fallbackText = await readStreamWithTimeout(
+          groq.chat.completions.create({ model: SUMMARY_MODEL, messages, temperature: 0.3, max_tokens: 1500, stream: true }),
+          streamCallback
+        );
+        return fallbackText;
+      } catch (fbErr) {
+        console.error('❌ Lit review fallback also failed:', fbErr.message);
+      }
+    }
+    const errorMsg = `⚠️ Literature review failed: ${error.message}`;
+    if (streamCallback) streamCallback(errorMsg);
+    return errorMsg;
   }
 }
 

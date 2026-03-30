@@ -173,9 +173,13 @@ async function askQuestion(req, res) {
       section: targetPaperIds.length > 1 ? `Paper: "${c.title}" | Section: ${c.section}` : c.section
     }));
 
+    console.log(`📊 [Ask] Retrieved ${hybridContext.length} context chunks from ${targetPaperIds.length} paper(s)`);
+
     const answer = await generateSummary(question, contextForLLM, chatHistory, (chunk) => {
       sendSSE({ chunk });
     });
+
+    console.log(`✅ [Ask] Answer generated: ${typeof answer === 'string' ? answer.length : 0} chars`);
 
     if (isStreamClosed) return;
 
