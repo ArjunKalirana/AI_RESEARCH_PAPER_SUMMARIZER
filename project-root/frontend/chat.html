@@ -232,6 +232,7 @@
 
             let reader = null;
             try {
+                console.log('[Chat] Sending question to /api/ask...');
                 const response = await fetch('/api/ask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -243,6 +244,8 @@
                     signal: abortController.signal
                 });
 
+                console.log('[Chat] Response status:', response.status, response.headers.get('content-type'));
+
                 if (!response.ok) {
                     updateAssistantMessage(loadingId, "I'm sorry, I encountered a server error.");
                     return;
@@ -253,12 +256,23 @@
                 let isFirstChunk = true;
                 let fullText = "";
                 let buffer = "";
+                let readCount = 0;
 
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done) break;
+                    readCount++;
+                    if (done) {
+                        console.log(`[Chat] Stream done after ${readCount} reads. Full text length: ${fullText.length}`);
+                        break;
+                    }
 
-                    buffer += decoder.decode(value, { stream: true });
+                    const rawChunk = decoder.decode(value, { stream: true });
+                    buffer += rawChunk;
+                    
+                    if (readCount <= 3) {
+                        console.log(`[Chat] Read #${readCount}: ${rawChunk.length} bytes, buffer: ${buffer.length} bytes`);
+                    }
+
                     const events = buffer.split('\n\n');
                     buffer = events.pop();
 
@@ -269,12 +283,14 @@
                             const data = JSON.parse(event.substring(6));
 
                             if (data.error) {
+                                console.log('[Chat] SSE error event:', data.error);
                                 updateAssistantMessage(loadingId, data.error);
                                 break;
                             }
 
                             if (data.chunk) {
                                 if (isFirstChunk) {
+                                    console.log('[Chat] First chunk received! Clearing Thinking...');
                                     updateAssistantMessage(loadingId, ""); // Clear "Thinking..."
                                     isFirstChunk = false;
                                 }
@@ -284,6 +300,7 @@
                             }
 
                             if (data.final) {
+                                console.log('[Chat] Final event received. Score:', data.confidenceScore);
                                 injectMetadata(loadingId, data);
                                 persistMessage('assistant', fullText, { 
                                   confidenceLabel: data.confidenceLabel, 
@@ -293,16 +310,23 @@
                             }
 
                             if (data.suggestions) {
+                                console.log('[Chat] Suggestions received:', data.suggestions?.length);
                                 renderSuggestions(loadingId, data.suggestions);
                                 scrollToBottom();
                             }
 
-                        } catch (err) { }
+                        } catch (err) {
+                            console.error('[Chat] SSE parse error:', err.message, 'Raw event:', event.substring(0, 200));
+                        }
                     }
                 }
 
             } catch (err) {
-                if (err.name === 'AbortError') return; // User sent a new message — old one cancelled
+                if (err.name === 'AbortError') {
+                    console.log('[Chat] Request aborted (user sent new message)');
+                    return;
+                }
+                console.error('[Chat] Fetch error:', err.message);
                 updateAssistantMessage(loadingId, "Connection lost. Please try again.");
             } finally {
                if (reader) reader.releaseLock();
