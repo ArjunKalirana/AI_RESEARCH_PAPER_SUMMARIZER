@@ -282,8 +282,7 @@ async function generateFollowUpSuggestions(question, answer, paperTitle) {
         }
       ],
       max_tokens: 150,
-      temperature: 0.4,
-      response_format: { type: "json_object" } // Optional, but let's stick to the prompt's request for safety
+      temperature: 0.4
     });
 
     const content = response.choices[0].message.content.trim();
