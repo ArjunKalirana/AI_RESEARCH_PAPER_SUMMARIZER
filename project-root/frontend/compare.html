@@ -6,8 +6,10 @@
     <title>ResearchAI - Compare Papers</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <script src="js/toast.js"></script>
     <script id="tailwind-config">
         tailwind.config = {
@@ -61,7 +63,7 @@
         <div class="flex items-center gap-8">
             <div class="flex items-center gap-2.5 group cursor-pointer" onclick="window.location.href='/'">
                 <div class="bg-primary p-1.5 rounded-lg text-white shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-                    <span class="material-symbols-outlined text-lg block">auto_stories</span>
+                    <span class="material-icons text-lg block">auto_stories</span>
                 </div>
                 <span class="font-bold text-base tracking-tight">ResearchAI</span>
             </div>
@@ -90,7 +92,7 @@
     <section id="selectionSection" class="mb-16">
         <div class="flex items-center justify-between mb-6">
             <h2 class="text-lg font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary">library_books</span>
+                <span class="material-icons text-primary">library_books</span>
                 Your Research Library
             </h2>
             <div id="selectionCounter" class="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -108,7 +110,7 @@
         <div class="mt-8 flex justify-center">
             <button id="startCompareBtn" disabled class="bg-primary/50 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl transition-all cursor-not-allowed flex items-center gap-3">
                 <span>COMPARE SELECTED PAPERS</span>
-                <span class="material-symbols-outlined">compare_arrows</span>
+                <span class="material-icons">compare_arrows</span>
             </button>
         </div>
     </section>
@@ -119,7 +121,7 @@
         <div class="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
             <div class="flex items-center gap-4 mb-4">
                 <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    <span class="material-symbols-outlined">psychology</span>
+                    <span class="material-icons">psychology</span>
                 </div>
                 <div>
                     <h3 class="font-bold">Compare & Contrast</h3>
@@ -131,7 +133,7 @@
                 <input id="compareInput" type="text" placeholder="e.g., How do the results of these studies differ?" 
                        class="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl py-4 pl-6 pr-14 focus:ring-2 focus:ring-primary/20 text-sm font-medium"/>
                 <button id="sendBtn" class="absolute right-2 top-2 w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center hover:scale-105 transition-transform">
-                    <span class="material-symbols-outlined">send</span>
+                    <span class="material-icons">send</span>
                 </button>
             </div>
 
@@ -149,7 +151,7 @@
                 <div id="streamingAnswer" class="prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed">
                     <!-- Streamed content -->
                     <div class="flex gap-2 items-center text-slate-400 animate-pulse-soft">
-                        <span class="material-symbols-outlined spin">sync</span>
+                        <span class="material-icons spin">sync</span>
                         Analyzing cross-paper patterns...
                     </div>
                 </div>
@@ -236,13 +238,13 @@
                 card.dataset.id = paper.paperId;
                 
                 const statusBadge = paper.status === 'ready' 
-                    ? `<span class="status-badge status-ready"><span class="material-symbols-outlined text-[12px]">check_circle</span> Ready</span>`
-                    : `<span class="status-badge status-needs-reindex"><span class="material-symbols-outlined text-[12px]">warning</span> Re-upload needed</span>`;
+                    ? `<span class="status-badge status-ready"><span class="material-icons text-[12px]">check_circle</span> Ready</span>`
+                    : `<span class="status-badge status-needs-reindex"><span class="material-icons text-[12px]">warning</span> Re-upload needed</span>`;
 
                 card.innerHTML = `
                     <div class="flex items-start gap-3">
                         <div class="mt-1 w-5 h-5 rounded border border-slate-200 dark:border-slate-700 flex items-center justify-center text-white group-hover:border-primary transition-colors checkbox-indicator">
-                            <span class="material-symbols-outlined text-xs hidden">check</span>
+                            <span class="material-icons text-xs hidden">check</span>
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center justify-between mb-2">
@@ -288,7 +290,7 @@
 
     function toggleSelection(id, card) {
         const checkbox = card.querySelector('.checkbox-indicator');
-        const checkIcon = checkbox.querySelector('.material-symbols-outlined');
+        const checkIcon = checkbox.querySelector('.material-icons');
 
         if (selectedPapers.includes(id)) {
             selectedPapers = selectedPapers.filter(p => p !== id);
@@ -329,7 +331,7 @@
         answerArea.classList.remove('hidden');
         streamingAnswer.innerHTML = `
             <div class="flex gap-2 items-center text-slate-400 animate-pulse-soft">
-                <span class="material-symbols-outlined spin">sync</span>
+                <span class="material-icons spin">sync</span>
                 Synthesizing multi-paper insights...
             </div>
         `;
@@ -345,7 +347,7 @@
             });
 
             if (!response.ok) {
-                streamingAnswer.innerHTML = `<div class="text-red-500 font-bold flex items-center gap-2"><span class="material-symbols-outlined">error</span> Server Error: ${response.status}</div>`;
+                streamingAnswer.innerHTML = `<div class="text-red-500 font-bold flex items-center gap-2"><span class="material-icons">error</span> Server Error: ${response.status}</div>`;
                 return;
             }
 
@@ -358,7 +360,7 @@
                 const { value, done } = await reader.read();
                 if (done) {
                     if (!receivedFinal && fullText !== "") {
-                        streamingAnswer.insertAdjacentHTML('beforeend', `<div class="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse"><span class="material-symbols-outlined text-sm">signal_disconnected</span> CONNECTION LOST — The answer may be incomplete.</div>`);
+                        streamingAnswer.insertAdjacentHTML('beforeend', `<div class="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse"><span class="material-icons text-sm">signal_disconnected</span> CONNECTION LOST — The answer may be incomplete.</div>`);
                     }
                     break;
                 }
@@ -380,7 +382,7 @@
                                   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
                                 `;
                                 warningBanner.innerHTML = `
-                                  <span class="material-symbols-outlined" style="font-size:18px;color:#d97706">warning</span>
+                                  <span class="material-icons" style="font-size:18px;color:#d97706">warning</span>
                                   <div style="flex:1;">${data.warning}</div>
                                   <span style="font-[10px];background:#fef3c7;padding:2px 8px;border-radius:20px;color:#b45309;white-space:nowrap;">Re-index Needed</span>
                                 `;
@@ -421,7 +423,7 @@
                 }
             }
         } catch (e) {
-            streamingAnswer.innerHTML = `<div class="text-red-500 font-bold flex items-center gap-2"><span class="material-symbols-outlined">wifi_off</span> Connection failed. Please check your network.</div>`;
+            streamingAnswer.innerHTML = `<div class="text-red-500 font-bold flex items-center gap-2"><span class="material-icons">wifi_off</span> Connection failed. Please check your network.</div>`;
         }
     }
 
