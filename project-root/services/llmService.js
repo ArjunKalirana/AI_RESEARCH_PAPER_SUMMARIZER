@@ -154,7 +154,21 @@ async function generateStructuredSummary(contextBlocks) {
       messages: [
         {
           role: "system",
-          content: "You are an expert academic summarizer. Generate a structured summary with headings: Problem, Approach, Methodology, and Key Results."
+          content: `You are an expert academic summarizer. Analyze the provided research paper context and generate a structured summary using EXACTLY these markdown headers in order:
+
+## Problem
+What specific problem or gap does this paper address? (2-3 sentences)
+
+## Approach  
+What is the core proposed solution or methodology? (2-3 sentences)
+
+## Methodology
+How was the research conducted? What datasets, models, or experimental setup? (3-4 sentences)
+
+## Key Results
+What were the main quantitative or qualitative findings? Include specific numbers if available. (3-4 sentences)
+
+Be precise and academic. Use the paper's own terminology. Do not invent information not present in the context.`
         },
         {
           role: "user",
@@ -168,11 +182,22 @@ async function generateStructuredSummary(contextBlocks) {
   } catch (error) {
     console.error("❌ Groq Summary Error:", error.message);
     
-    // Auto-retry once for TPM errors
-    if (error.status === 413 || error.message.includes("tokens per minute")) {
-      console.log("🔄 TPM Limit hit. Waiting 1s and retrying summary...");
-      await new Promise(r => setTimeout(r, 1000));
-      return generateStructuredSummary(contextBlocks); 
+    // One retry only — if it fails again, return a truncated fallback
+    try {
+      console.log("🔄 TPM Limit hit. Retrying with truncated context...");
+      const truncated = contextBlocks.map(c => ({...c, chunkText: c.chunkText.slice(0, 1000)}));
+      const retryResp = await groq.chat.completions.create({
+        model: SUMMARY_MODEL,
+        messages: [
+          { role: "system", content: "Summarize this research paper context briefly in 3-4 sentences covering the main problem, approach, and result." },
+          { role: "user", content: truncated.map(c => c.chunkText).join('\n') }
+        ],
+        temperature: 0.3,
+      });
+      return retryResp.choices[0].message.content.trim();
+    } catch (retryErr) {
+      console.error("❌ Critical Summary Failure:", retryErr.message);
+      return "Summary temporarily unavailable — please try clicking 'Ask AI' for an interactive analysis.";
     }
     
     return "Wait... The summary generator is briefly overloaded. Showing raw preview instead.";
@@ -213,7 +238,14 @@ async function summarizePaperSection(sectionName, sectionText) {
         messages: [
           {
             role: "system",
-            content: "You are an expert academic assistant. Summarize the following research paper section professionally. Focus on the core meaning and key points. Keep it under 150 words. Do not use conversational filler."
+            content: `You are an expert academic summarizer specializing in research papers.
+Rules:
+- Summarize the provided section in 100-150 words
+- Preserve technical terms and specific metrics exactly as written  
+- Use active voice and formal academic tone
+- Start directly with the content — no preamble like "This section discusses..."
+- If the section contains numerical results, include them
+- Do not speculate or add information not in the text`
           },
           {
             role: "user",
