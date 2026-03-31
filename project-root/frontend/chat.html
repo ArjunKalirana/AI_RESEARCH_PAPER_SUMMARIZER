@@ -208,8 +208,13 @@
         document.getElementById('saveChatBtn')?.addEventListener('click', saveChatAsMarkdown);
 
         async function handleSend() {
-            const question = chatInput.value.trim();
+            await doFetch();
+        }
+
+        async function doFetch(isRetry = false) {
+            const question = isRetry ? (window._lastQuestion || "") : chatInput.value.trim();
             if (!question) return;
+            window._lastQuestion = question;
 
             // Cancel any previous in-flight request
             if (window._currentAskAbort) window._currentAskAbort.abort();
@@ -336,6 +341,14 @@
                     return;
                 }
                 console.error('[Chat] Fetch error:', err.message);
+                
+                if (!isRetry && err.message.includes('network error')) {
+                    console.log('[Chat] Transient network error detected. Retrying in 1s...');
+                    updateAssistantMessage(loadingId, "Connection unstable. Retrying...");
+                    setTimeout(() => doFetch(true), 1500);
+                    return;
+                }
+                
                 updateAssistantMessage(loadingId, "Connection lost. Please try again.");
             } finally {
                try { reader?.releaseLock(); } catch (e) {}

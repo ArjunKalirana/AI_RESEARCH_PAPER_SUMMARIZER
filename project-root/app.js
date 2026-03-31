@@ -103,6 +103,7 @@ app.use('/api', uploadRoutes);
 app.use('/api', summaryRoutes);
 // Force HTTP/1.1 for SSE routes — Railway HTTP/2 breaks SSE frame boundaries
 app.use(['/api/ask', '/api/compare'], (req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Accel-Buffering', 'no');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   // Signal Railway/nginx to not buffer this response
@@ -110,7 +111,7 @@ app.use(['/api/ask', '/api/compare'], (req, res, next) => {
     res.socket.setNoDelay(true);
     res.socket.setTimeout(0); // Disable idle timeout for long-lived streams
   }
-  console.log(`[SSE Middleware] Intercepted ${req.url} - Headers and socket timeout (0) set`);
+  console.log(`[SSE Middleware] Intercepted ${req.url} - Nuclear headers and socket timeout set`);
   next();
 });
 

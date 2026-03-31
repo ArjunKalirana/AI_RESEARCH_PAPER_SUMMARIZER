@@ -76,11 +76,14 @@ async function askQuestion(req, res) {
       return res.status(400).json({ error: 'paperId (or paperIds array) and question are required. Send Content-Type: application/json.' });
     }
 
-    // ── Headers ──────────────────────────────────────────────────────────────
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Content-Encoding', 'identity');
-    res.setHeader('X-Accel-Buffering', 'no'); 
+    // ── Headers (Atomic Write) ─────────────────────────────────────────────
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Accel-Buffering': 'no',
+      'Content-Encoding': 'identity'
+    });
 
     // Force TCP to send data immediately
     if (res.socket) {
@@ -88,25 +91,33 @@ async function askQuestion(req, res) {
       res.socket.setTimeout(0);
     }
 
-    // Fill proxy buffer with 4KB of padding to force immediate flush
+    // 8KB Multi-Stage Padding (Stage 1)
+    res.write(':' + ' '.repeat(4096) + '\n\n');
+    flushRes();
+    // 8KB Multi-Stage Padding (Stage 2)
     res.write(':' + ' '.repeat(4096) + '\n\n');
     res.write('data: {"status":"processing"}\n\n');
     flushRes();
     
     console.log(`[Ask] SSE Stream started for question: "${question.slice(0, 30)}..."`);
 
-    // Keepalive heartbeat every 5s — use hybrid pings (comment + data) for proxy compliance
-    keepalive = setInterval(() => {
-        if (!isStreamClosed && !res.writableEnded) {
-            try {
-                res.write(': keep-alive\n\n'); 
-                res.write('data: {"heartbeat":true}\n\n');
-                flushRes();
-            } catch (e) {
-                console.error("[SSE Heartbeat] Write failed:", e.message);
-            }
-        }
-    }, 5000);
+    // Rapid Heartbeat (2s for first 10s) to "lock in" the cloud proxy
+    let heartbeatCount = 0;
+    const startHeartbeat = () => {
+      if (isStreamClosed || res.writableEnded) return;
+      try {
+        res.write(': keep-alive\n\n'); 
+        res.write('data: {"heartbeat":true}\n\n');
+        flushRes();
+        
+        heartbeatCount++;
+        const nextInterval = heartbeatCount < 5 ? 2000 : 5000;
+        keepalive = setTimeout(startHeartbeat, nextInterval);
+      } catch (e) {
+        console.error("[SSE Heartbeat] Write failed:", e.message);
+      }
+    };
+    keepalive = setTimeout(startHeartbeat, 2000);
 
     // Generate unique session ID for multi-paper chat history
     const sessionId = targetPaperIds.sort().join('_');
@@ -180,7 +191,7 @@ async function askQuestion(req, res) {
     }
 
     if (hybridContext.length === 0) {
-      clearInterval(keepalive);
+      clearTimeout(keepalive);
       sendSSE({ chunk: "I am not confident enough to answer this based on the paper context." });
       sendSSE({ final: true, confidenceScore: 0.0, confidenceLabel: "Low", sources: [] });
       return res.end();
@@ -224,7 +235,7 @@ async function askQuestion(req, res) {
     );
 
     // Send final event immediately — user sees the answer stop streaming
-    clearInterval(keepalive);
+    clearTimeout(keepalive);
     sendSSE({
       final: true,
       confidenceScore: finalScore,
@@ -249,7 +260,7 @@ async function askQuestion(req, res) {
     }
 
   } catch (error) {
-    clearInterval(keepalive);
+    clearTimeout(keepalive);
     console.error('❌ Ask API Error:', error);
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to process question' });

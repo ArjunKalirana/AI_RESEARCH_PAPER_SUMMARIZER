@@ -36,11 +36,14 @@ async function compareQuestion(req, res) {
             return res.status(400).json({ error: 'Please select 2-5 papers and provide a question.' });
         }
 
-        // Headers
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Content-Encoding', 'identity');
-        res.setHeader('X-Accel-Buffering', 'no');
+        // ── Headers (Atomic Write) ─────────────────────────────────────────────
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache, no-transform',
+            'X-Content-Type-Options': 'nosniff',
+            'X-Accel-Buffering': 'no',
+            'Content-Encoding': 'identity'
+        });
 
         // Force TCP to send data immediately
         if (res.socket) {
@@ -48,24 +51,33 @@ async function compareQuestion(req, res) {
             res.socket.setTimeout(0);
         }
 
-        // Fill proxy buffer with 4KB of padding to force immediate flush
+        // 8KB Multi-Stage Padding (Stage 1)
+        res.write(':' + ' '.repeat(4096) + '\n\n');
+        flushRes();
+        // 8KB Multi-Stage Padding (Stage 2)
         res.write(':' + ' '.repeat(4096) + '\n\n');
         res.write('data: {"status":"processing"}\n\n');
         flushRes();
+        
         console.log(`[Compare] SSE Stream started for question: "${question.slice(0, 30)}..."`);
 
-        // Keepalive heartbeat every 5s — hybrid pings (comment + data)
-        keepalive = setInterval(() => {
-            if (!isStreamClosed && !res.writableEnded) {
-                try {
-                    res.write(': keep-alive\n\n'); 
-                    res.write('data: {"heartbeat":true}\n\n');
-                    flushRes();
-                } catch (e) {
-                    console.error("[SSE Compare Heartbeat] Write failed:", e.message);
-                }
+        // Rapid Heartbeat (2s for first 10s) to "lock in" the cloud proxy
+        let heartbeatCount = 0;
+        const startHeartbeat = () => {
+            if (isStreamClosed || res.writableEnded) return;
+            try {
+                res.write(': keep-alive\n\n'); 
+                res.write('data: {"heartbeat":true}\n\n');
+                flushRes();
+                
+                heartbeatCount++;
+                const nextInterval = heartbeatCount < 5 ? 2000 : 5000;
+                keepalive = setTimeout(startHeartbeat, nextInterval);
+            } catch (e) {
+                console.error("[SSE Compare Heartbeat] Write failed:", e.message);
             }
-        }, 5000);
+        };
+        keepalive = setTimeout(startHeartbeat, 2000);
 
         // No history in comparison mode — use question directly, skip the Groq call
         const refinedQuery = question;
@@ -171,7 +183,7 @@ async function compareQuestion(req, res) {
         if (truncatedContext.length === 0) {
             sendSSE({ chunk: "I couldn't find enough relevant information across these papers to make a comparison." });
             sendSSE({ final: true, sources: [], paperLabels: {} });
-            clearInterval(keepalive);
+            clearTimeout(keepalive);
             return res.end();
         }
 
@@ -185,7 +197,7 @@ async function compareQuestion(req, res) {
         if (isStreamClosed) return;
 
         // 5. Send final event immediately — don't block on suggestions
-        clearInterval(keepalive);
+        clearTimeout(keepalive);
         sendSSE({
             final: true,
             paperLabels,
@@ -209,7 +221,7 @@ async function compareQuestion(req, res) {
         }
 
     } catch (error) {
-        clearInterval(keepalive);
+        clearTimeout(keepalive);
         console.error('❌ Compare API Error:', error);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to process comparison' });
