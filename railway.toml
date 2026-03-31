@@ -1,0 +1,10 @@
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+
+[deploy.environmentVariables]
+NODE_ENV = "production"
+
+# Increase Railway's request timeout for LLM streaming responses
+# (default is 60s which is too short for slow LLM calls)
+PORT = "3000"

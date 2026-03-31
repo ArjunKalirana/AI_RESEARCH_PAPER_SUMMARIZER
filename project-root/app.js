@@ -26,6 +26,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// NOTE: Do NOT add compression middleware without an SSE filter to skip /api/ask and /api/compare
+
 // Request Logger diagnostic
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -99,6 +101,15 @@ app.get('/health', async (req, res) => {
 // API Routes
 app.use('/api', uploadRoutes);
 app.use('/api', summaryRoutes);
+// Force HTTP/1.1 for SSE routes — Railway HTTP/2 breaks SSE frame boundaries
+app.use(['/api/ask', '/api/compare'], (req, res, next) => {
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  // Signal Railway/nginx to not buffer this response
+  res.socket?.setNoDelay(true);
+  next();
+});
+
 app.use('/api', askRoutes);
 app.use('/api', compareRoutes);
 app.use('/api', libraryRoutes);

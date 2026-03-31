@@ -43,7 +43,7 @@ function getConfidenceLabel(score) {
 ================================ */
 async function askQuestion(req, res) {
   let isStreamClosed = false;
-  let keepalive = null;
+  let keepalive;
   
   req.on('close', () => {
     isStreamClosed = true;
@@ -53,9 +53,15 @@ async function askQuestion(req, res) {
     if (isStreamClosed || res.writableEnded) return;
     try {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
+      flushRes();
     } catch (e) {
       console.error("[SSE] Write failed:", e.message);
     }
+  };
+
+  const flushRes = () => {
+    if (typeof res.flush === 'function') res.flush();
+    else if (res.socket && !res.socket.destroyed) res.socket.uncork?.();
   };
 
   try {
@@ -74,6 +80,8 @@ async function askQuestion(req, res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    res.setHeader('Content-Encoding', 'identity');
     res.setHeader('X-Accel-Buffering', 'no'); 
     res.flushHeaders();
 
@@ -87,7 +95,7 @@ async function askQuestion(req, res) {
     res.write('data: {"status":"processing"}\n\n');
 
     // Keepalive heartbeat — use real data events (some proxies strip SSE comments)
-    const keepalive = setInterval(() => {
+    keepalive = setInterval(() => {
         if (!isStreamClosed && !res.writableEnded) {
             res.write('data: {"heartbeat":true}\n\n');
         }
@@ -172,7 +180,7 @@ async function askQuestion(req, res) {
     }
 
     // ── Answer Generation ──────────────────────────────────────────────────────────
-    clearInterval(keepalive); // LLM streaming takes over keepalive duty
+    // If multi-paper, use generateComparison for better citation formatting
     // If multi-paper, use generateComparison for better citation formatting
     const genFunc = targetPaperIds.length > 1 ? generateSummary : generateSummary;
     // Actually, generateSummary is already good enough if we label the blocks.
@@ -209,6 +217,7 @@ async function askQuestion(req, res) {
     );
 
     // Send final event immediately — user sees the answer stop streaming
+    clearInterval(keepalive);
     sendSSE({
       final: true,
       confidenceScore: finalScore,

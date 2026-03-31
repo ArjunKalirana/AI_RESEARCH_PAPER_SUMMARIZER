@@ -281,6 +281,7 @@
                         
                         try {
                             const data = JSON.parse(event.substring(6));
+                            if (data.heartbeat || data.status) continue; // keepalive / initial ack
 
                             if (data.error) {
                                 console.log('[Chat] SSE error event:', data.error);
@@ -329,7 +330,7 @@
                 console.error('[Chat] Fetch error:', err.message);
                 updateAssistantMessage(loadingId, "Connection lost. Please try again.");
             } finally {
-               if (reader) reader.releaseLock();
+               try { reader?.releaseLock(); } catch (e) {}
             }
         }
 

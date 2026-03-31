@@ -11,16 +11,22 @@ const processedPath = path.join(__dirname, '../data/processed_papers');
  */
 async function compareQuestion(req, res) {
     let isStreamClosed = false;
-    let keepalive = null;
+    let keepalive;
     req.on('close', () => { isStreamClosed = true; });
 
     const sendSSE = (data) => {
         if (isStreamClosed || res.writableEnded) return;
         try {
             res.write(`data: ${JSON.stringify(data)}\n\n`);
+            flushRes();
         } catch (e) {
             console.error("[SSE] Write failed:", e.message);
         }
+    };
+
+    const flushRes = () => {
+        if (typeof res.flush === 'function') res.flush();
+        else if (res.socket && !res.socket.destroyed) res.socket.uncork?.();
     };
 
     try {
@@ -34,6 +40,8 @@ async function compareQuestion(req, res) {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Transfer-Encoding', 'chunked');
+        res.setHeader('Content-Encoding', 'identity');
         res.setHeader('X-Accel-Buffering', 'no');
         res.flushHeaders();
 
@@ -162,7 +170,6 @@ async function compareQuestion(req, res) {
         }
 
         // 4. Generate Comparison with Streaming
-        clearInterval(keepalive); // LLM streaming takes over keepalive duty
         console.log(`📊 [Compare] Context ready: ${truncatedContext.length} chunks, ${totalWords} words. Starting LLM...`);
         const answer = await generateComparison(question, truncatedContext, (chunk) => {
             sendSSE({ chunk });
@@ -172,6 +179,7 @@ async function compareQuestion(req, res) {
         if (isStreamClosed) return;
 
         // 5. Send final event immediately — don't block on suggestions
+        clearInterval(keepalive);
         sendSSE({
             final: true,
             paperLabels,
