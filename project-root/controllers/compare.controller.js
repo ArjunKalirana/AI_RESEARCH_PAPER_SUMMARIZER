@@ -42,19 +42,30 @@ async function compareQuestion(req, res) {
         res.setHeader('Content-Encoding', 'identity');
         res.setHeader('X-Accel-Buffering', 'no');
 
+        // Force TCP to send data immediately
+        if (res.socket) {
+            res.socket.setNoDelay(true);
+            res.socket.setTimeout(0);
+        }
+
         // Fill proxy buffer with 4KB of padding to force immediate flush
         res.write(':' + ' '.repeat(4096) + '\n\n');
         res.write('data: {"status":"processing"}\n\n');
         flushRes();
         console.log(`[Compare] SSE Stream started for question: "${question.slice(0, 30)}..."`);
 
-        // Keepalive with real data events (proxies may strip SSE comments)
+        // Keepalive heartbeat every 5s — hybrid pings (comment + data)
         keepalive = setInterval(() => {
             if (!isStreamClosed && !res.writableEnded) {
-                res.write('data: {"heartbeat":true}\n\n');
-                flushRes();
+                try {
+                    res.write(': keep-alive\n\n'); 
+                    res.write('data: {"heartbeat":true}\n\n');
+                    flushRes();
+                } catch (e) {
+                    console.error("[SSE Compare Heartbeat] Write failed:", e.message);
+                }
             }
-        }, 8000);
+        }, 5000);
 
         // No history in comparison mode — use question directly, skip the Groq call
         const refinedQuery = question;

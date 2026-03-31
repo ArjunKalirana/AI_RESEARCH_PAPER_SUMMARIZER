@@ -82,6 +82,12 @@ async function askQuestion(req, res) {
     res.setHeader('Content-Encoding', 'identity');
     res.setHeader('X-Accel-Buffering', 'no'); 
 
+    // Force TCP to send data immediately
+    if (res.socket) {
+      res.socket.setNoDelay(true);
+      res.socket.setTimeout(0);
+    }
+
     // Fill proxy buffer with 4KB of padding to force immediate flush
     res.write(':' + ' '.repeat(4096) + '\n\n');
     res.write('data: {"status":"processing"}\n\n');
@@ -89,13 +95,18 @@ async function askQuestion(req, res) {
     
     console.log(`[Ask] SSE Stream started for question: "${question.slice(0, 30)}..."`);
 
-    // Keepalive heartbeat — use real data events (some proxies strip SSE comments)
+    // Keepalive heartbeat every 5s — use hybrid pings (comment + data) for proxy compliance
     keepalive = setInterval(() => {
         if (!isStreamClosed && !res.writableEnded) {
-            res.write('data: {"heartbeat":true}\n\n');
-            flushRes();
+            try {
+                res.write(': keep-alive\n\n'); 
+                res.write('data: {"heartbeat":true}\n\n');
+                flushRes();
+            } catch (e) {
+                console.error("[SSE Heartbeat] Write failed:", e.message);
+            }
         }
-    }, 8000);
+    }, 5000);
 
     // Generate unique session ID for multi-paper chat history
     const sessionId = targetPaperIds.sort().join('_');

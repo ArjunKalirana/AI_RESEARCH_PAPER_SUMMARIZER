@@ -106,8 +106,11 @@ app.use(['/api/ask', '/api/compare'], (req, res, next) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   // Signal Railway/nginx to not buffer this response
-  res.socket?.setNoDelay(true);
-  console.log(`[SSE Middleware] Intercepted ${req.url} - Headers set for streaming`);
+  if (res.socket) {
+    res.socket.setNoDelay(true);
+    res.socket.setTimeout(0); // Disable idle timeout for long-lived streams
+  }
+  console.log(`[SSE Middleware] Intercepted ${req.url} - Headers and socket timeout (0) set`);
   next();
 });
 
