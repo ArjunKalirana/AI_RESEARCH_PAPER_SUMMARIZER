@@ -12,22 +12,43 @@ const processedPath = path.join(__dirname, '../data/processed_papers');
  ================================ */
 async function evaluateRetrieval(query, hybridContext) {
   const count = hybridContext.length;
+  if (count === 0) return { precision: "0.00", avgScore: 0 };
+  
+  const scores = hybridContext.map(c => c.score || 0).filter(s => s > 0);
+  const avgScore = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length) : 0.2;
+  
+  let precision = Math.min(1.0, (count / 6) * avgScore * 1.5);
+  
   return {
     totalRetrieved: count,
-    relevantChunks: count,
-    precision: count > 4 ? "0.75" : count > 2 ? "0.60" : "0.45"
+    avgScore: avgScore.toFixed(2),
+    precision: precision.toFixed(2)
   };
 }
 
 async function evaluateFaithfulness(summary, hybridContext) {
-  if (!hybridContext.length || !summary) return { groundingScore: "0.50" };
+  if (!hybridContext.length || !summary) return { groundingScore: "0.00" };
+  const text = (summary || "").toLowerCase();
+  
+  const refusalPhrases = [
+    "i don't find", "i do not find", "not mentioned", "not discussed", 
+    "no information", "cannot answer", "i am sorry", "i'm sorry",
+    "does not provide", "does not contain", "information is not available",
+    "the provided context does not", "not specifically mentioned"
+  ];
+  
+  const isRefusal = refusalPhrases.some(phrase => text.includes(phrase));
+  if (isRefusal) {
+    return { groundingScore: "0.10", refusal: true };
+  }
+
   const contextLen = hybridContext.reduce((sum, c) => sum + (c.chunkText || "").length, 0);
-  const score = Math.min(0.95, 0.5 + (contextLen / 10000) * 0.4);
-  return { groundingScore: score.toFixed(2) };
+  const densityScore = Math.min(0.95, 0.4 + (contextLen / 10000) * 0.5);
+  return { groundingScore: densityScore.toFixed(2) };
 }
 
 function getConfidenceLabel(score) {
-  if (score > 0.65) return "High";
+  if (score > 0.70) return "High";
   if (score >= 0.40) return "Medium";
   return "Low";
 }
@@ -93,7 +114,8 @@ async function askQuestion(req, res) {
                     paperId: id,
                     title: paper.title || "Paper",
                     chunkText: res.text,
-                    section: res.sectionName || "Context"
+                    section: res.sectionName || "Context",
+                    score: res.score || 0
                 });
                 const sLabel = targetPaperIds.length > 1 ? `${paper.title}: ${res.sectionName || 'Document'}` : (res.sectionName || "Document");
                 if (!sourceTracker.has(sLabel)) {
@@ -116,7 +138,8 @@ async function askQuestion(req, res) {
                   paperId: id,
                   title: paper.title || "Paper",
                   chunkText: chunk.chunkText,
-                  section: chunk.sectionName || "Segment"
+                  section: chunk.sectionName || "Segment",
+                  score: sim
                 });
 
                 const sLabel = targetPaperIds.length > 1 ? `${paper.title}: ${chunk.sectionName || 'Document'}` : (chunk.sectionName || "Document");
@@ -149,21 +172,23 @@ async function askQuestion(req, res) {
 
     const paperTitle = hybridContext[0]?.title || "Research Paper";
     const [retrievalRes, faithfulnessRes] = await Promise.all([
-      evaluateRetrieval(question, hybridContext),
+      evaluateRetrieval(refinedQuery, hybridContext),
       evaluateFaithfulness(answer, hybridContext)
     ]);
 
     addMessageToHistory(sessionId, "user", question).catch(() => {});
     addMessageToHistory(sessionId, "assistant", answer).catch(() => {});
 
-    const finalScore = parseFloat(
-      (0.4 * parseFloat(faithfulnessRes.groundingScore) + 
-       0.6 * parseFloat(retrievalRes.precision)).toFixed(2)
-    );
+    const fScore = parseFloat(faithfulnessRes.groundingScore);
+    const pScore = parseFloat(retrievalRes.precision);
+    const finalConfidence = (0.5 * fScore + 0.5 * pScore);
+    const confidenceLabel = getConfidenceLabel(finalConfidence);
+    
+    console.log(`[Ask] Evaluation - Score: ${finalConfidence.toFixed(2)} | Faith: ${fScore} | Precision: ${pScore} | Refusal: ${faithfulnessRes.refusal || false}`);
 
     sendSocket('ask:final', {
-      confidenceScore: finalScore,
-      confidenceLabel: getConfidenceLabel(finalScore),
+      confidenceScore: finalConfidence.toFixed(2),
+      confidenceLabel: confidenceLabel,
       sources
     });
 

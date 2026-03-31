@@ -320,6 +320,7 @@
         }
     </style>
     <script src="js/toast.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
     <div class="container">
@@ -409,6 +410,9 @@
         const compareBtn = document.getElementById('compareSelected');
         const selectedCountLabel = document.getElementById('selectedCount');
         let selectedPapers = new Set();
+
+        const socket = io();
+        socket.on('connect', () => console.log('[Socket Library] Connected:', socket.id));
 
         async function fetchLibrary() {
             try {
@@ -591,6 +595,11 @@
         litReviewBtn.addEventListener('click', async () => {
             if (selectedPapers.size < 2) return;
             
+            if (!socket.connected) {
+                showToast("Connection lost. Reconnecting...", "warning");
+                return;
+            }
+
             // Open modal & resetting state
             litModal.classList.add('active');
             litReviewSpinner.style.display = 'flex';
@@ -598,57 +607,54 @@
             litReviewFooter.style.display = 'none';
             rawLitReviewMarkdown = "";
 
+            // Cleanup previous listeners
+            socket.off('litreview:chunk');
+            socket.off('litreview:status');
+            socket.off('litreview:final');
+            socket.off('litreview:error');
+            socket.off('litreview:warning');
+
+            // Setup Listeners
+            socket.on('litreview:status', (data) => console.log('[LitReview Status]', data.message));
+            
+            socket.on('litreview:warning', (data) => showToast(data.warning, 'warning', 5000));
+
+            socket.on('litreview:chunk', (data) => {
+                litReviewSpinner.style.display = 'none';
+                rawLitReviewMarkdown += data.chunk;
+                litReviewMarkdown.innerHTML = marked.parse(rawLitReviewMarkdown);
+            });
+
+            socket.on('litreview:final', (data) => {
+                console.log('[LitReview Final] Done.');
+                litReviewFooter.style.display = 'flex';
+                socket.off('litreview:chunk');
+                socket.off('litreview:final');
+            });
+
+            socket.on('litreview:error', (data) => {
+                litReviewSpinner.style.display = 'none';
+                litReviewMarkdown.innerHTML = `<p style="color:var(--danger)">${data.error || 'Failed to generate review.'}</p>`;
+            });
+
             try {
                 const response = await fetch('/api/lit-review', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ paperIds: Array.from(selectedPapers) })
+                    body: JSON.stringify({ 
+                        socketId: socket.id,
+                        paperIds: Array.from(selectedPapers) 
+                    })
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Server returned ${response.status}`);
-                }
-
-                litReviewSpinner.style.display = 'none';
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const parts = buffer.split('\n\n');
-                    buffer = parts.pop();
-
-                    for (const part of parts) {
-                        const line = part.trim();
-                        if (!line.startsWith('data:')) continue;
-                        
-                        try {
-                            const payload = JSON.parse(line.slice(5).trim());
-                            
-                            if (payload.error) {
-                                showToast(payload.error, 'error');
-                                continue;
-                            }
-                            if (payload.done) {
-                                litReviewFooter.style.display = 'flex';
-                                continue;
-                            }
-                            if (payload.chunk) {
-                                rawLitReviewMarkdown += payload.chunk;
-                                litReviewMarkdown.innerHTML = marked.parse(rawLitReviewMarkdown);
-                            }
-                        } catch (err) {}
-                    }
+                    const errorJson = await response.json().catch(() => ({}));
+                    throw new Error(errorJson.error || `Server error ${response.status}`);
                 }
             } catch (error) {
                 litReviewSpinner.style.display = 'none';
-                litReviewMarkdown.innerHTML = `<p style="color:var(--danger)">Failed to generate review: ${error.message}</p>`;
-                console.error("Lit Review Error:", error);
+                litReviewMarkdown.innerHTML = `<p style="color:var(--danger)">${error.message}</p>`;
+                console.error("Lit Review Trigger Error:", error);
             }
         });
 
