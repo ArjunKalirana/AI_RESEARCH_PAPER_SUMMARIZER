@@ -79,28 +79,21 @@ async function askQuestion(req, res) {
     // ── Headers ──────────────────────────────────────────────────────────────
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
     res.setHeader('Content-Encoding', 'identity');
     res.setHeader('X-Accel-Buffering', 'no'); 
-    res.flushHeaders();
 
-    // Fill proxy buffer with 2KB of padding to force immediate flush
-    res.write(':' + ' '.repeat(2048) + '\n\n');
-    console.log(`[Ask] SSE Stream started for question: "${question.slice(0, 30)}..."`);
-
-    // Force TCP to send data immediately (disable Nagle buffering)
-    if (res.socket) {
-      res.socket.setNoDelay(true);
-      res.socket.setTimeout(0);
-    }
-
-    // Send initial event IMMEDIATELY to establish the SSE stream through Railway's HTTP/2 proxy
+    // Fill proxy buffer with 4KB of padding to force immediate flush
+    res.write(':' + ' '.repeat(4096) + '\n\n');
     res.write('data: {"status":"processing"}\n\n');
+    flushRes();
+    
+    console.log(`[Ask] SSE Stream started for question: "${question.slice(0, 30)}..."`);
 
     // Keepalive heartbeat — use real data events (some proxies strip SSE comments)
     keepalive = setInterval(() => {
         if (!isStreamClosed && !res.writableEnded) {
             res.write('data: {"heartbeat":true}\n\n');
+            flushRes();
         }
     }, 8000);
 
