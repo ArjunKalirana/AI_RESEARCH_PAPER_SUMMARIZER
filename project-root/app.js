@@ -10,6 +10,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const uploadRoutes = require('./routes/upload.route');
 const summaryRoutes = require('./routes/summary.route');
@@ -19,6 +21,24 @@ const libraryRoutes = require('./routes/library.route');
 const litreviewRoutes = require('./routes/litreview.route');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Attach io to app for use in controllers
+app.set('io', io);
+
+io.on('connection', (socket) => {
+  console.log(`🔌 New client connected: ${socket.id}`);
+  socket.on('disconnect', () => {
+    console.log(`🔌 Client disconnected: ${socket.id}`);
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -101,22 +121,10 @@ app.get('/health', async (req, res) => {
 // API Routes
 app.use('/api', uploadRoutes);
 app.use('/api', summaryRoutes);
-// Force HTTP/1.1 for SSE routes — Railway HTTP/2 breaks SSE frame boundaries
-app.use(['/api/ask', '/api/compare'], (req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  // Signal Railway/nginx to not buffer this response
-  if (res.socket) {
-    res.socket.setNoDelay(true);
-    res.socket.setTimeout(0); // Disable idle timeout for long-lived streams
-  }
-  console.log(`[SSE Middleware] Intercepted ${req.url} - Nuclear headers and socket timeout set`);
-  next();
-});
-
 app.use('/api', askRoutes);
 app.use('/api', compareRoutes);
+app.use('/api', libraryRoutes);
+app.use('/api', litreviewRoutes);
 app.use('/api', libraryRoutes);
 app.use('/api', litreviewRoutes);
 
@@ -128,7 +136,7 @@ app.use((err, req, res, next) => {
 
 const { rebuildIndicesFromDisk } = require('./services/faissService');
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     
     // Initial rebuild of FAISS indices on startup to handle ephemeral filesystem loss

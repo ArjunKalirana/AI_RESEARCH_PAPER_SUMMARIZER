@@ -9,12 +9,8 @@ const processedPath = path.join(__dirname, '../data/processed_papers');
 
 /* ================================
    Retrieval Evaluation
-================================ */
-/* ================================
-   Retrieval Evaluation
-================================ */
+ ================================ */
 async function evaluateRetrieval(query, hybridContext) {
-  // Fast heuristic — no extra FAISS calls needed
   const count = hybridContext.length;
   return {
     totalRetrieved: count,
@@ -25,9 +21,7 @@ async function evaluateRetrieval(query, hybridContext) {
 
 async function evaluateFaithfulness(summary, hybridContext) {
   if (!hybridContext.length || !summary) return { groundingScore: "0.50" };
-  // Heuristic: longer answers from rich context = higher grounding
   const contextLen = hybridContext.reduce((sum, c) => sum + (c.chunkText || "").length, 0);
-  const summaryLength = typeof summary === 'string' ? summary.length : (summary?.answer?.length || 0);
   const score = Math.min(0.95, 0.5 + (contextLen / 10000) * 0.4);
   return { groundingScore: score.toFixed(2) };
 }
@@ -40,100 +34,44 @@ function getConfidenceLabel(score) {
 
 /* ================================
    Main Ask Controller
-================================ */
+ ================================ */
 async function askQuestion(req, res) {
-  let isStreamClosed = false;
-  let keepalive;
-  
-  req.on('close', () => {
-    isStreamClosed = true;
-  });
-
-  const sendSSE = (data) => {
-    if (isStreamClosed || res.writableEnded) return;
-    try {
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-      flushRes();
-    } catch (e) {
-      console.error("[SSE] Write failed:", e.message);
-    }
-  };
-
-  const flushRes = () => {
-    if (typeof res.flush === 'function') res.flush();
-    else if (res.socket && !res.socket.destroyed) res.socket.uncork?.();
-  };
-
   try {
-    const { paperId, paperIds: rawPaperIds, question } = req.body || {};
+    const { socketId, paperId, paperIds: rawPaperIds, question } = req.body || {};
+    const io = req.app.get('io');
     
-    // Support both single and multi-paper mode
+    if (!socketId) {
+      return res.status(400).json({ error: 'socketId is required for streaming.' });
+    }
+    
     let targetPaperIds = rawPaperIds && Array.isArray(rawPaperIds) && rawPaperIds.length > 0
       ? rawPaperIds
       : paperId ? [paperId] : [];
 
     if (targetPaperIds.length === 0 || !question) {
-      return res.status(400).json({ error: 'paperId (or paperIds array) and question are required. Send Content-Type: application/json.' });
+      return res.status(400).json({ error: 'paperId (or paperIds array) and question are required.' });
     }
 
-    // ── Headers (Atomic Write) ─────────────────────────────────────────────
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'X-Content-Type-Options': 'nosniff',
-      'X-Accel-Buffering': 'no',
-      'Content-Encoding': 'identity'
-    });
-
-    // Force TCP to send data immediately
-    if (res.socket) {
-      res.socket.setNoDelay(true);
-      res.socket.setTimeout(0);
-    }
-
-    // 8KB Multi-Stage Padding (Stage 1)
-    res.write(':' + ' '.repeat(4096) + '\n\n');
-    flushRes();
-    // 8KB Multi-Stage Padding (Stage 2)
-    res.write(':' + ' '.repeat(4096) + '\n\n');
-    res.write('data: {"status":"processing"}\n\n');
-    flushRes();
-    
-    console.log(`[Ask] SSE Stream started for question: "${question.slice(0, 30)}..."`);
-
-    // Rapid Heartbeat (2s for first 10s) to "lock in" the cloud proxy
-    let heartbeatCount = 0;
-    const startHeartbeat = () => {
-      if (isStreamClosed || res.writableEnded) return;
-      try {
-        res.write(': keep-alive\n\n'); 
-        res.write('data: {"heartbeat":true}\n\n');
-        flushRes();
-        
-        heartbeatCount++;
-        const nextInterval = heartbeatCount < 5 ? 2000 : 5000;
-        keepalive = setTimeout(startHeartbeat, nextInterval);
-      } catch (e) {
-        console.error("[SSE Heartbeat] Write failed:", e.message);
-      }
+    const sendSocket = (event, data) => {
+        if (io) io.to(socketId).emit(event, data);
     };
-    keepalive = setTimeout(startHeartbeat, 2000);
 
-    // Generate unique session ID for multi-paper chat history
+    res.json({ success: true, message: "Streaming started via Socket.io" });
+
+    sendSocket('ask:status', { status: 'processing', message: 'Retrieving context...' });
+    console.log(`[Ask] Socket.io stream started for ${socketId}`);
+
     const sessionId = targetPaperIds.sort().join('_');
     const chatHistory = await getChatHistory(sessionId);
     
-    // Skip the Groq rewrite call entirely on first message — saves 3-8s
     const refinedQuery = chatHistory.length > 0 
       ? await rewriteQuery(question, chatHistory)
       : question;
 
-    // ── Retrieval ────────────────────────────────────────────────────────────
     const hybridContext = [];
     const sourceTracker = new Set();
     const sources = [];
 
-    // Parallel search across all papers
     const searchResults = await Promise.all(
       targetPaperIds.map(id => searchQuery(refinedQuery, id, targetPaperIds.length > 1 ? 3 : 6).catch(e => {
         console.error(`Search failed for ${id}:`, e.message);
@@ -191,18 +129,11 @@ async function askQuestion(req, res) {
     }
 
     if (hybridContext.length === 0) {
-      clearTimeout(keepalive);
-      sendSSE({ chunk: "I am not confident enough to answer this based on the paper context." });
-      sendSSE({ final: true, confidenceScore: 0.0, confidenceLabel: "Low", sources: [] });
-      return res.end();
+      sendSocket('ask:results', { chunk: "I am not confident enough to answer this based on the paper context." });
+      sendSocket('ask:final', { confidenceScore: 0.0, confidenceLabel: "Low", sources: [] });
+      return;
     }
 
-    // ── Answer Generation ──────────────────────────────────────────────────────────
-    // If multi-paper, use generateComparison for better citation formatting
-    // If multi-paper, use generateComparison for better citation formatting
-    const genFunc = targetPaperIds.length > 1 ? generateSummary : generateSummary;
-    // Actually, generateSummary is already good enough if we label the blocks.
-    // Tweak context blocks to include title for the LLM
     const contextForLLM = hybridContext.map(c => ({
       ...c,
       section: targetPaperIds.length > 1 ? `Paper: "${c.title}" | Section: ${c.section}` : c.section
@@ -211,21 +142,17 @@ async function askQuestion(req, res) {
     console.log(`📊 [Ask] Retrieved ${hybridContext.length} context chunks from ${targetPaperIds.length} paper(s)`);
 
     const answer = await generateSummary(question, contextForLLM, chatHistory, (chunk) => {
-      sendSSE({ chunk });
+      sendSocket('ask:chunk', { chunk });
     });
 
     console.log(`✅ [Ask] Answer generated: ${typeof answer === 'string' ? answer.length : 0} chars`);
 
-    if (isStreamClosed) return;
-
-    // ── Parallel Post-Processing ─────────────────────────────────────────────
     const paperTitle = hybridContext[0]?.title || "Research Paper";
     const [retrievalRes, faithfulnessRes] = await Promise.all([
       evaluateRetrieval(question, hybridContext),
       evaluateFaithfulness(answer, hybridContext)
     ]);
 
-    // Save history in background — don't block the response
     addMessageToHistory(sessionId, "user", question).catch(() => {});
     addMessageToHistory(sessionId, "assistant", answer).catch(() => {});
 
@@ -234,39 +161,26 @@ async function askQuestion(req, res) {
        0.6 * parseFloat(retrievalRes.precision)).toFixed(2)
     );
 
-    // Send final event immediately — user sees the answer stop streaming
-    clearTimeout(keepalive);
-    sendSSE({
-      final: true,
+    sendSocket('ask:final', {
       confidenceScore: finalScore,
       confidenceLabel: getConfidenceLabel(finalScore),
       sources
     });
 
-    // Generate suggestions async AFTER closing — they arrive as a follow-up event
-    if (!isStreamClosed) {
-      generateFollowUpSuggestions(question, answer, paperTitle)
-        .then(suggestions => {
-          if (!isStreamClosed && !res.writableEnded) {
-            sendSSE({ suggestions });
-          }
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (!res.writableEnded) res.end();
-        });
-    } else {
-      if (!res.writableEnded) res.end();
-    }
+    generateFollowUpSuggestions(question, answer, paperTitle)
+      .then(suggestions => {
+          sendSocket('ask:suggestions', { suggestions });
+      })
+      .catch(() => {});
 
   } catch (error) {
-    clearTimeout(keepalive);
     console.error('❌ Ask API Error:', error);
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to process question' });
     } else {
-      sendSSE({ error: 'An error occurred during generation.' });
-      res.end();
+      if (io && req.body?.socketId) {
+          io.to(req.body.socketId).emit('ask:error', { error: 'An error occurred during generation.' });
+      }
     }
   }
 }

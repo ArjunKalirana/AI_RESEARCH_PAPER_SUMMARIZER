@@ -7,99 +7,48 @@ const { generateComparison, rewriteQuery, generateFollowUpSuggestions } = requir
 const processedPath = path.join(__dirname, '../data/processed_papers');
 
 /**
- * Handles multi-paper comparison questions via SSE
+ * Handles multi-paper comparison questions via Socket.io
  */
 async function compareQuestion(req, res) {
-    let isStreamClosed = false;
-    let keepalive;
-    req.on('close', () => { isStreamClosed = true; });
-
-    const sendSSE = (data) => {
-        if (isStreamClosed || res.writableEnded) return;
-        try {
-            res.write(`data: ${JSON.stringify(data)}\n\n`);
-            flushRes();
-        } catch (e) {
-            console.error("[SSE] Write failed:", e.message);
-        }
-    };
-
-    const flushRes = () => {
-        if (typeof res.flush === 'function') res.flush();
-        else if (res.socket && !res.socket.destroyed) res.socket.uncork?.();
-    };
-
     try {
-        const { paperIds, question } = req.body;
+        const { socketId, paperIds, question } = req.body;
+        const io = req.app.get('io');
+
+        if (!socketId) {
+            return res.status(400).json({ error: 'socketId is required for streaming.' });
+        }
 
         if (!Array.isArray(paperIds) || paperIds.length < 2 || paperIds.length > 5 || !question) {
             return res.status(400).json({ error: 'Please select 2-5 papers and provide a question.' });
         }
 
-        // ── Headers (Atomic Write) ─────────────────────────────────────────────
-        res.writeHead(200, {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache, no-transform',
-            'X-Content-Type-Options': 'nosniff',
-            'X-Accel-Buffering': 'no',
-            'Content-Encoding': 'identity'
-        });
-
-        // Force TCP to send data immediately
-        if (res.socket) {
-            res.socket.setNoDelay(true);
-            res.socket.setTimeout(0);
-        }
-
-        // 8KB Multi-Stage Padding (Stage 1)
-        res.write(':' + ' '.repeat(4096) + '\n\n');
-        flushRes();
-        // 8KB Multi-Stage Padding (Stage 2)
-        res.write(':' + ' '.repeat(4096) + '\n\n');
-        res.write('data: {"status":"processing"}\n\n');
-        flushRes();
-        
-        console.log(`[Compare] SSE Stream started for question: "${question.slice(0, 30)}..."`);
-
-        // Rapid Heartbeat (2s for first 10s) to "lock in" the cloud proxy
-        let heartbeatCount = 0;
-        const startHeartbeat = () => {
-            if (isStreamClosed || res.writableEnded) return;
-            try {
-                res.write(': keep-alive\n\n'); 
-                res.write('data: {"heartbeat":true}\n\n');
-                flushRes();
-                
-                heartbeatCount++;
-                const nextInterval = heartbeatCount < 5 ? 2000 : 5000;
-                keepalive = setTimeout(startHeartbeat, nextInterval);
-            } catch (e) {
-                console.error("[SSE Compare Heartbeat] Write failed:", e.message);
-            }
+        const sendSocket = (event, data) => {
+            if (io) io.to(socketId).emit(event, data);
         };
-        keepalive = setTimeout(startHeartbeat, 2000);
 
-        // No history in comparison mode — use question directly, skip the Groq call
+        // Acknowledge immediate request
+        res.json({ success: true, message: "Comparison started via Socket.io" });
+
+        sendSocket('compare:status', { status: 'processing', message: 'Searching and analyzing multiple papers...' });
+        console.log(`[Compare] Socket.io comparison started for ${socketId}`);
+
         const refinedQuery = question;
 
-        // 2. Parallel Search across all indices (Resilient)
         const searchResults = await Promise.all(
             paperIds.map(async (id) => {
                 try {
                     return await searchQuery(refinedQuery, id, 5);
                 } catch (e) {
                     console.error(`⚠️ Search failed for paper ${id}:`, e.message);
-                    sendSSE({ warning: `Paper ID ${id.slice(0, 8)}... could not be searched (index missing or service down). Skipping.` });
+                    sendSocket('compare:warning', { warning: `Paper ID ${id.slice(0, 8)}... could not be searched. Skipping.` });
                     return null; 
                 }
             })
         );
 
-        // 3. Resolve context and metadata
         const labeledContext = [];
         const paperLabels = {};
         const sources = [];
-
         const labels = ['Paper A', 'Paper B', 'Paper C', 'Paper D', 'Paper E'];
 
         for (let i = 0; i < paperIds.length; i++) {
@@ -107,9 +56,8 @@ async function compareQuestion(req, res) {
             const label = labels[i];
             const result = searchResults[i];
 
-            if (!result) continue; // Skip failed search
+            if (!result) continue;
 
-            // Fetch Title/Year from Neo4j (for mapping)
             const neoRes = await runQuery(
                 `MATCH (p:ResearchPaper {paperId: $paperId}) RETURN p.title AS title, p.year AS year`,
                 { paperId }
@@ -117,12 +65,10 @@ async function compareQuestion(req, res) {
             const title = neoRes.records[0]?.get('title') || "Unknown Paper";
             paperLabels[label] = title;
 
-            // Load Paper JSON for chunk text
             const paperPath = path.join(processedPath, `${paperId}.json`);
             if (fs.existsSync(paperPath)) {
                 const paperData = JSON.parse(fs.readFileSync(paperPath, 'utf-8'));
                 
-                // Handle Reranker results if present
                 if (result.results && result.results.length > 0) {
                     for (const chunk of result.results) {
                         labeledContext.push({
@@ -136,7 +82,6 @@ async function compareQuestion(req, res) {
                         sources.push({ label, section: chunk.sectionName || "Context" });
                     }
                 } else {
-                    // Fallback to basic indices
                     const allIndices = Array.isArray(result.indices) ? (Array.isArray(result.indices[0]) ? result.indices[0] : result.indices) : [];
                     const allDistances = Array.isArray(result.distances) ? (Array.isArray(result.distances[0]) ? result.distances[0] : result.distances) : [];
                     
@@ -151,7 +96,7 @@ async function compareQuestion(req, res) {
                                 paperLabel: label,
                                 chunkText: chunk.chunkText,
                                 section: chunk.sectionName || "Context",
-                                score: dist // Distance as score
+                                score: dist
                             });
                             sources.push({ label, section: chunk.sectionName || "Context" });
                         }
@@ -160,11 +105,8 @@ async function compareQuestion(req, res) {
             }
         }
 
-        // --- SMART TRUNCATION (3000 Words Limit) ---
-        // 1. Sort by similarity score across all papers
         labeledContext.sort((a, b) => b.score - a.score);
 
-        // 2. Greedy selection to stay within word budget
         let totalWords = 0;
         const truncatedContext = [];
         const MAX_WORDS = 3000;
@@ -175,59 +117,42 @@ async function compareQuestion(req, res) {
                 truncatedContext.push(ctx);
                 totalWords += wordCount;
             } else {
-                console.log(`✂️ Truncating context. Limit reached at ${totalWords} words.`);
                 break;
             }
         }
 
         if (truncatedContext.length === 0) {
-            sendSSE({ chunk: "I couldn't find enough relevant information across these papers to make a comparison." });
-            sendSSE({ final: true, sources: [], paperLabels: {} });
-            clearTimeout(keepalive);
-            return res.end();
+            sendSocket('compare:chunk', { chunk: "I couldn't find enough relevant information across these papers to make a comparison." });
+            sendSocket('compare:final', { sources: [], paperLabels: {} });
+            return;
         }
 
-        // 4. Generate Comparison with Streaming
-        console.log(`📊 [Compare] Context ready: ${truncatedContext.length} chunks, ${totalWords} words. Starting LLM...`);
+        console.log(`📊 [Compare] Context ready: ${truncatedContext.length} chunks. Starting LLM...`);
         const answer = await generateComparison(question, truncatedContext, (chunk) => {
-            sendSSE({ chunk });
+            sendSocket('compare:chunk', { chunk });
         });
 
         console.log(`✅ [Compare] Answer generated: ${typeof answer === 'string' ? answer.length : 0} chars`);
-        if (isStreamClosed) return;
 
-        // 5. Send final event immediately — don't block on suggestions
-        clearTimeout(keepalive);
-        sendSSE({
-            final: true,
+        sendSocket('compare:final', {
             paperLabels,
             sources
         });
 
-        // Generate suggestions async AFTER final — they arrive as a follow-up event
-        if (!isStreamClosed) {
-            generateFollowUpSuggestions(question, answer, "Multiple Research Papers")
-                .then(suggestions => {
-                    if (!isStreamClosed && !res.writableEnded) {
-                        sendSSE({ suggestions });
-                    }
-                })
-                .catch(() => {})
-                .finally(() => {
-                    if (!res.writableEnded) res.end();
-                });
-        } else {
-            if (!res.writableEnded) res.end();
-        }
+        generateFollowUpSuggestions(question, answer, "Multiple Research Papers")
+            .then(suggestions => {
+                sendSocket('compare:suggestions', { suggestions });
+            })
+            .catch(() => {});
 
     } catch (error) {
-        clearTimeout(keepalive);
         console.error('❌ Compare API Error:', error);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to process comparison' });
         } else {
-            sendSSE({ error: 'An error occurred during comparison generation.' });
-            res.end();
+            if (io && req.body?.socketId) {
+                io.to(req.body.socketId).emit('compare:error', { error: 'An error occurred during comparison generation.' });
+            }
         }
     }
 }
