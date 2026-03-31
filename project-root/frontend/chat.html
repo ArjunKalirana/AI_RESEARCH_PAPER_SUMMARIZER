@@ -247,9 +247,14 @@
                 console.log('[Chat] Response status:', response.status, response.headers.get('content-type'));
 
                 if (!response.ok) {
+                    console.error('[Chat] Server Error Response:', response.status, response.statusText);
+                    const errorJson = await response.json().catch(() => ({}));
+                    console.error('[Chat] Error details:', errorJson);
                     updateAssistantMessage(loadingId, "I'm sorry, I encountered a server error.");
                     return;
                 }
+
+                console.log('[Chat] Stream connection established. Starting reader...');
 
                 reader = response.body.getReader();
                 const decoder = new TextDecoder('utf-8');
@@ -259,7 +264,10 @@
                 let readCount = 0;
 
                 while (true) {
-                    const { done, value } = await reader.read();
+                    const { done, value } = await reader.read().catch(e => {
+                        console.error('[Chat] Reader read error:', e.message);
+                        throw e;
+                    });
                     readCount++;
                     if (done) {
                         console.log(`[Chat] Stream done after ${readCount} reads. Full text length: ${fullText.length}`);

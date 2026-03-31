@@ -107,6 +107,7 @@ app.use(['/api/ask', '/api/compare'], (req, res, next) => {
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   // Signal Railway/nginx to not buffer this response
   res.socket?.setNoDelay(true);
+  console.log(`[SSE Middleware] Intercepted ${req.url} - Headers set for streaming`);
   next();
 });
 

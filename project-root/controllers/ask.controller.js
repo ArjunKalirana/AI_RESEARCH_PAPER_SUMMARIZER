@@ -80,10 +80,13 @@ async function askQuestion(req, res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Transfer-Encoding', 'chunked');
     res.setHeader('Content-Encoding', 'identity');
     res.setHeader('X-Accel-Buffering', 'no'); 
     res.flushHeaders();
+
+    // Fill proxy buffer with 2KB of padding to force immediate flush
+    res.write(':' + ' '.repeat(2048) + '\n\n');
+    console.log(`[Ask] SSE Stream started for question: "${question.slice(0, 30)}..."`);
 
     // Force TCP to send data immediately (disable Nagle buffering)
     if (res.socket) {
