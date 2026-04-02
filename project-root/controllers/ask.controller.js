@@ -58,7 +58,7 @@ function getConfidenceLabel(score) {
  ================================ */
 async function askQuestion(req, res) {
   try {
-    const { socketId, paperId, paperIds: rawPaperIds, question } = req.body || {};
+    const { socketId, paperId, paperIds: rawPaperIds, question, userId } = req.body || {};
     const io = req.app.get('io');
     
     if (!socketId) {
@@ -68,6 +68,13 @@ async function askQuestion(req, res) {
     let targetPaperIds = rawPaperIds && Array.isArray(rawPaperIds) && rawPaperIds.length > 0
       ? rawPaperIds
       : paperId ? [paperId] : [];
+
+    if (req.isGuest) {
+      if (!req.shareContext.permissions.canChat) {
+         return res.status(403).json({ error: 'Chat is disabled for this share link.' });
+      }
+      targetPaperIds = [req.shareContext.paperId]; // Force single valid paper ID
+    }
 
     if (targetPaperIds.length === 0 || !question) {
       return res.status(400).json({ error: 'paperId (or paperIds array) and question are required.' });
@@ -83,7 +90,8 @@ async function askQuestion(req, res) {
     console.log(`[Ask] Socket.io stream started for ${socketId}`);
 
     const sessionId = targetPaperIds.sort().join('_');
-    const chatHistory = await getChatHistory(sessionId);
+    const activeUserId = req.isGuest ? `guest_${req.shareContext.paperId}` : req.user.userId;
+    const chatHistory = await getChatHistory(sessionId, activeUserId);
     
     const refinedQuery = chatHistory.length > 0 
       ? await rewriteQuery(question, chatHistory)
@@ -107,6 +115,18 @@ async function askQuestion(req, res) {
         
         if (!fs.existsSync(paperPath)) continue;
         const paper = JSON.parse(fs.readFileSync(paperPath, 'utf-8'));
+        
+        if (req.isGuest) {
+            if (paper.paperId !== req.shareContext.paperId && id !== req.shareContext.paperId) {
+                sendSocket('ask:error', { error: 'Forbidden: Out of scope for this share token.' });
+                return;
+            }
+        } else {
+            if (paper.userId !== req.user.userId) {
+                sendSocket('ask:error', { error: 'Forbidden: You do not own this paper.' });
+                return;
+            }
+        }
 
         if (result.results && result.results.length > 0) {
             for (const res of result.results) {
@@ -176,8 +196,8 @@ async function askQuestion(req, res) {
       evaluateFaithfulness(answer, hybridContext)
     ]);
 
-    addMessageToHistory(sessionId, "user", question).catch(() => {});
-    addMessageToHistory(sessionId, "assistant", answer).catch(() => {});
+    addMessageToHistory(sessionId, activeUserId, "user", question).catch(() => {});
+    addMessageToHistory(sessionId, activeUserId, "assistant", answer).catch(() => {});
 
     const fScore = parseFloat(faithfulnessRes.groundingScore);
     const pScore = parseFloat(retrievalRes.precision);

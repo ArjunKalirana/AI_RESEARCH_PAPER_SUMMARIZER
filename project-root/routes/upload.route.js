@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { uploadPaper } = require('../controllers/upload.controller');
+const requireAuth = require('../middleware/auth.middleware');
 
 const RAW_PAPERS_DIR = path.join(__dirname, '../data/raw_papers');
 if (!fs.existsSync(RAW_PAPERS_DIR)) {
@@ -56,7 +57,7 @@ function multerMiddleware(req, res, next) {
   });
 }
 
-router.post('/upload', multerMiddleware, uploadPaper);
-router.post('/upload-stream', multerMiddleware, uploadPaper);
+router.post('/upload', requireAuth, multerMiddleware, uploadPaper);
+router.post('/upload-stream', requireAuth, multerMiddleware, uploadPaper);
 
 module.exports = router;

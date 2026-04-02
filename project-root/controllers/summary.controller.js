@@ -23,6 +23,13 @@ async function getSummary(req, res) {
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     const paperData = JSON.parse(fileContent);
 
+    if (req.isGuest) {
+      if (req.shareContext.paperId !== cleanPaperId) return res.status(403).json({ error: 'Out of scope for this share token.' });
+      if (req.shareContext.permissions.canView !== true) return res.status(403).json({ error: 'View permission denied.' });
+    } else {
+      if (paperData.userId !== req.user.userId) return res.status(403).json({ error: 'Forbidden' });
+    }
+
     // Filter fields to avoid sending unnecessary large data like all raw chunks
     const responsePayload = {
       title: paperData.title,
@@ -64,6 +71,7 @@ async function downloadPaper(req, res) {
     }
 
     const paperData = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+    if (paperData.userId !== req.user.userId) return res.status(403).json({ error: 'Forbidden' });
     const rawFileName = paperData.rawFileName;
 
     if (!rawFileName) {
@@ -98,6 +106,7 @@ async function streamCritique(req, res) {
     }
 
     const paperData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (paperData.userId !== req.user.userId) return res.status(403).json({ error: 'Forbidden' });
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -128,6 +137,7 @@ async function getFlashcards(req, res) {
     }
 
     const paperData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (paperData.userId !== req.user.userId) return res.status(403).json({ error: 'Forbidden' });
 
     // Return cached flashcards if they already exist
     if (paperData.flashcards && Array.isArray(paperData.flashcards) && paperData.flashcards.length > 0) {

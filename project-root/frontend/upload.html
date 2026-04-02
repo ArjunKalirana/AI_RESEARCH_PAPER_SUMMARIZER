@@ -315,7 +315,39 @@
   </div>
 </footer>
 
-<script>
+<script>\n
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) { window.location.href = '/login.html'; }
+    window.addEventListener('DOMContentLoaded', () => {
+      const btn = document.createElement('button');
+      btn.textContent = 'Sign Out';
+      btn.style.cssText = 'position: fixed; top: 1rem; right: 1rem; background-color: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: bold; cursor: pointer; z-index: 1000; border: none;';
+      btn.onclick = () => {
+        fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+          localStorage.removeItem('authToken');
+          window.location.href = '/login.html';
+        });
+      };
+      document.body.appendChild(btn);
+    });
+
+    const originalFetch = window.fetch;
+    window.fetch = async function() {
+      let [resource, config] = arguments;
+      if (!config) config = {};
+      if (!config.headers) config.headers = {};
+      
+      const t = localStorage.getItem('authToken');
+      if (t) {
+        if (config.headers instanceof Headers) {
+          config.headers.append('Authorization', 'Bearer ' + t);
+        } else {
+          config.headers['Authorization'] = 'Bearer ' + t;
+        }
+      }
+      return originalFetch(resource, config);
+    };
+\n
   const STAGES = ['parsing', 'cleaning', 'sections', 'chunking', 'indexing', 'summarizing'];
 
   const dropzoneWrapper   = document.getElementById('dropzoneWrapper');

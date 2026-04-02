@@ -8,7 +8,8 @@ const { normalizePaperJSON, validatePaperJSON } = require('../services/paperNorm
 const { extractMetadata } = require('../services/metadataExtractor');
 const { indexChunks, warmUpIndex } = require('../services/faissService');
 const { runQuery } = require('../services/neo4j.service');
-const { generateSummary, generateStructuredSummary, summarizePaperSection } = require('../services/llmService');
+const { generateSummary, generateStructuredSummary, summarizePaperSection, generatePaperTags } = require('../services/llmService');
+const { updatePaperMeta } = require('../services/libraryMetaService');
 
 const OUTPUT_DIR = path.join(__dirname, '../data/processed_papers');
 
@@ -122,7 +123,8 @@ async function uploadPaper(req, res) {
 
     const normalizedPaper = normalizePaperJSON(rawPaperJSON);
     validatePaperJSON(normalizedPaper);
-    const { paperId, title, year, source, authors } = normalizedPaper;
+    normalizedPaper.userId = req.user.userId;
+    const { paperId, title, year, source, authors, userId } = normalizedPaper;
 
     // ── Stage 5: Indexing (FAISS) ───────────────────────────────────────────
     if (isSSE) await sendEvent({ stage: 'indexing', label: 'Building vector index...', percent: 75 });
@@ -133,7 +135,7 @@ async function uploadPaper(req, res) {
     warmUpIndex(paperId).catch(() => {}); // Fire and forget — don't await
 
     // Build Knowledge Graph
-    await runQuery(`MERGE (p:ResearchPaper {paperId: $paperId}) SET p.title = $title, p.year = $year`, { paperId, title, year });
+    await runQuery(`MERGE (p:ResearchPaper {paperId: $paperId}) SET p.title = $title, p.year = $year, p.userId = $userId`, { paperId, title, year, userId });
     if (source) {
       await runQuery(`MERGE (s:Source {sourceName: $name}) SET s.sourceURL = $url`, { name: source.sourceName, url: source.sourceURL });
       await runQuery(`MATCH (p:ResearchPaper {paperId: $paperId}) MATCH (s:Source {sourceName: $name}) MERGE (p)-[:SOURCED_FROM]->(s)`, { paperId, name: source.sourceName });
@@ -178,6 +180,11 @@ async function uploadPaper(req, res) {
     
     normalizedPaper.sections = summarizedSections;
     normalizedPaper.summaryPreview = summaryPreview;
+    
+    // AI Tags Generation & Meta persistence
+    const tags = await generatePaperTags(normalizedPaper);
+    normalizedPaper.tags = tags;
+    await updatePaperMeta(paperId, userId, { tags });
     
     // ── Done ──────────────────────────────────────────────────────────────────
     const outPath = path.join(OUTPUT_DIR, `${paperId}.json`);

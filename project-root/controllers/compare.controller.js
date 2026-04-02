@@ -68,6 +68,10 @@ async function compareQuestion(req, res) {
             const paperPath = path.join(processedPath, `${paperId}.json`);
             if (fs.existsSync(paperPath)) {
                 const paperData = JSON.parse(fs.readFileSync(paperPath, 'utf-8'));
+                if (paperData.userId !== req.user.userId) {
+                    sendSocket('compare:warning', { warning: `Forbidden: Paper ID ${paperId.slice(0, 8)}... not owned by you. Skipping.` });
+                    continue;
+                }
                 
                 if (result.results && result.results.length > 0) {
                     for (const chunk of result.results) {
@@ -169,13 +173,14 @@ async function getPapers(req, res) {
         const files = fs.readdirSync(processedPath).filter(f => f.endsWith('.json'));
         const papers = files.map(file => {
             const data = JSON.parse(fs.readFileSync(path.join(processedPath, file), 'utf-8'));
+            if (data.userId !== req.user.userId) return null;
             return {
                 paperId: file.replace('.json', ''),
                 title: data.title || "Untitled",
                 authors: data.authors || [],
                 year: data.year || "Unknown"
             };
-        });
+        }).filter(Boolean);
 
         res.json(papers);
     } catch (error) {

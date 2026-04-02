@@ -206,10 +206,29 @@
 </nav>
 </div>
 <div class="flex items-center gap-4">
-<button id="downloadPdfBtn" class="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-full font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-sm text-xs">
-<span class="material-symbols-outlined text-sm">download</span>
-<span>Download PDF</span>
+<div class="relative group">
+<button class="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-full font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-sm text-xs">
+<span class="material-symbols-outlined text-sm">ios_share</span>
+<span>Export</span>
 </button>
+<div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+    <button id="downloadPdfBtn" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="material-symbols-outlined text-base text-red-500">picture_as_pdf</span> Download PDF
+    </button>
+    <button onclick="copyApiCitation('BibTeX')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+        <span class="material-symbols-outlined text-base">format_quote</span> Copy BibTeX
+    </button>
+    <button onclick="copyApiCitation('APA')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+        <span class="material-symbols-outlined text-base">format_quote</span> Copy APA
+    </button>
+    <button onclick="copyApiCitation('MLA')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+        <span class="material-symbols-outlined text-base">format_quote</span> Copy MLA
+    </button>
+    <button onclick="copyApiCitation('IEEE')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+        <span class="material-symbols-outlined text-base">format_quote</span> Copy IEEE
+    </button>
+</div>
+</div>
 <div class="h-8 w-8 rounded-full border border-slate-200 dark:border-slate-800 overflow-hidden cursor-pointer">
 <img alt="User" class="w-full h-full object-cover" src="https://ui-avatars.com/api/?name=Research+User&background=1e68f1&color=fff"/>
 </div>
@@ -364,7 +383,39 @@ Section-by-Section Analysis
 <p>© 2026 RESEARCHAI • ACADEMIC INTELLIGENCE ENGINE</p>
 </footer>
 
-<script>
+<script>\n
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) { window.location.href = '/login.html'; }
+    window.addEventListener('DOMContentLoaded', () => {
+      const btn = document.createElement('button');
+      btn.textContent = 'Sign Out';
+      btn.style.cssText = 'position: fixed; top: 1rem; right: 1rem; background-color: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: bold; cursor: pointer; z-index: 1000; border: none;';
+      btn.onclick = () => {
+        fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+          localStorage.removeItem('authToken');
+          window.location.href = '/login.html';
+        });
+      };
+      document.body.appendChild(btn);
+    });
+
+    const originalFetch = window.fetch;
+    window.fetch = async function() {
+      let [resource, config] = arguments;
+      if (!config) config = {};
+      if (!config.headers) config.headers = {};
+      
+      const t = localStorage.getItem('authToken');
+      if (t) {
+        if (config.headers instanceof Headers) {
+          config.headers.append('Authorization', 'Bearer ' + t);
+        } else {
+          config.headers['Authorization'] = 'Bearer ' + t;
+        }
+      }
+      return originalFetch(resource, config);
+    };
+\n
     let currentPaperData = null;
     let currentTab = 'BibTeX';
 
@@ -556,6 +607,22 @@ Section-by-Section Analysis
         toggleSection(id);
     }
 
+    async function copyApiCitation(style) {
+        if (!paperId) return;
+        try {
+            const res = await fetch(`/api/export/${paperId}/citation?style=${style}`);
+            if (!res.ok) throw new Error('Export failed');
+            const text = await res.text();
+            await navigator.clipboard.writeText(text);
+            const toast = document.getElementById('toast');
+            toast.textContent = "COPIED " + style.toUpperCase() + "!";
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        } catch(e) {
+            if (window.showToast) showToast('Failed to copy', 'error');
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         // paperId already declared globally above
 
@@ -566,7 +633,7 @@ Section-by-Section Analysis
         }
 
         document.getElementById('askAiBtn').onclick = () => window.location.href = `chat.html?paperId=${paperId}`;
-        document.getElementById('downloadPdfBtn').onclick = () => window.location.href = `/api/download/${paperId}`;
+        document.getElementById('downloadPdfBtn').onclick = () => window.location.href = `/api/export/${paperId}/summary-pdf`;
 
         let rawSummaryData = "";
 

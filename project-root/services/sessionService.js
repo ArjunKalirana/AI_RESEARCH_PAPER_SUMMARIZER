@@ -35,7 +35,8 @@ const MAX_HISTORY_LENGTH = 10; // Stores last 5 Q&A pairs
  * @param {string} sessionId - The unique identifier (e.g. paperId)
  * @returns {Promise<Array>} Array of message objects { role: 'user' | 'assistant', content: string }
  */
-function getChatHistory(sessionId) {
+function getChatHistory(sessionId, userId) {
+  const scopedId = `userId::${userId}::sessionId::${sessionId}`;
   return new Promise((resolve, reject) => {
     // We order by timestamp DESC to get the latest messages, then limit by MAX, then reverse them
     // so they are chronological for the LLM.
@@ -47,7 +48,7 @@ function getChatHistory(sessionId) {
       LIMIT ?
     `;
 
-    db.all(query, [sessionId, MAX_HISTORY_LENGTH], (err, rows) => {
+    db.all(query, [scopedId, MAX_HISTORY_LENGTH], (err, rows) => {
       if (err) {
         console.error('Error fetching chat history:', err.message);
         return reject(err);
@@ -68,11 +69,12 @@ function getChatHistory(sessionId) {
  * @param {string} role - 'user' or 'assistant'
  * @param {string} content - the message text
  */
-function addMessageToHistory(sessionId, role, content) {
+function addMessageToHistory(sessionId, userId, role, content) {
+  const scopedId = `userId::${userId}::sessionId::${sessionId}`;
   return new Promise((resolve, reject) => {
     const insertQuery = `INSERT INTO ChatHistory (sessionId, role, content) VALUES (?, ?, ?)`;
     
-    db.run(insertQuery, [sessionId, role, content], function(err) {
+    db.run(insertQuery, [scopedId, role, content], function(err) {
       if (err) {
         console.error('Error inserting message:', err.message);
         return reject(err);
@@ -90,7 +92,7 @@ function addMessageToHistory(sessionId, role, content) {
         AND sessionId = ?
       `;
 
-      db.run(cleanupQuery, [sessionId, MAX_HISTORY_LENGTH, sessionId], (cleanupErr) => {
+      db.run(cleanupQuery, [scopedId, MAX_HISTORY_LENGTH, scopedId], (cleanupErr) => {
         if (cleanupErr) {
           console.error('Error pruning chat history:', cleanupErr.message);
         }
@@ -104,10 +106,11 @@ function addMessageToHistory(sessionId, role, content) {
  * Clears the chat history for a specific session.
  * @param {string} sessionId 
  */
-function clearChatHistory(sessionId) {
+function clearChatHistory(sessionId, userId) {
+  const scopedId = `userId::${userId}::sessionId::${sessionId}`;
   return new Promise((resolve, reject) => {
     const deleteQuery = `DELETE FROM ChatHistory WHERE sessionId = ?`;
-    db.run(deleteQuery, [sessionId], (err) => {
+    db.run(deleteQuery, [scopedId], (err) => {
       if (err) return reject(err);
       resolve(true);
     });

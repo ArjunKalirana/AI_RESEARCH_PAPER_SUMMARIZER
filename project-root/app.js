@@ -1,7 +1,7 @@
 require('dotenv').config({ quiet: true });
 
 // Validate critical env vars on startup
-const REQUIRED_ENV = ['GROQ_API_KEY', 'NEO4J_URL', 'NEO4J_PASSWORD', 'FAISS_URL'];
+const REQUIRED_ENV = ['GROQ_API_KEY', 'NEO4J_URL', 'NEO4J_PASSWORD', 'FAISS_URL', 'JWT_SECRET'];
 const missing = REQUIRED_ENV.filter(k => !process.env[k]);
 if (missing.length > 0) {
   console.warn(`⚠️  Missing environment variables: ${missing.join(', ')} — some features may not work correctly.`);
@@ -12,6 +12,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { Server } = require('socket.io');
+const cookieParser = require('cookie-parser');
 
 const uploadRoutes = require('./routes/upload.route');
 const summaryRoutes = require('./routes/summary.route');
@@ -19,6 +20,8 @@ const askRoutes = require('./routes/ask.route');
 const compareRoutes = require('./routes/compare.route');
 const libraryRoutes = require('./routes/library.route');
 const litreviewRoutes = require('./routes/litreview.route');
+const exportRoutes = require('./routes/export.route');
+const authRoutes = require('./routes/auth.route');
 
 const app = express();
 const server = http.createServer(app);
@@ -45,6 +48,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // NOTE: Do NOT add compression middleware without an SSE filter to skip /api/ask and /api/compare
 
@@ -78,6 +82,16 @@ app.get('/', (req, res) => {
 
 // Dummy Favicon handler to stop 404 logs
 app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+// Shared Paper Public Route
+app.get('/shared/:token', (req, res) => {
+    const sharedPath = path.join(frontendPath, 'shared.html');
+    if (fs.existsSync(sharedPath)) {
+        res.sendFile(sharedPath);
+    } else {
+        res.status(404).send("shared.html NOT FOUND");
+    }
+});
 
 // ── Health Check (Railway monitoring) ───────────────────────────────────────
 app.get('/health', async (req, res) => {
@@ -119,14 +133,14 @@ app.get('/health', async (req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api', summaryRoutes);
 app.use('/api', askRoutes);
 app.use('/api', compareRoutes);
 app.use('/api', libraryRoutes);
 app.use('/api', litreviewRoutes);
-app.use('/api', libraryRoutes);
-app.use('/api', litreviewRoutes);
+app.use('/api', exportRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -410,35 +410,75 @@ RULES:
 }
 
 async function generateLiteratureReview(contextParts, streamCallback) {
-  console.log(`🧠 [Groq] Generating automated literature review... | Model: ${CHAT_MODEL} | Papers: ${contextParts.length}`);
-  
-  const contextText = contextParts.map((p, i) =>
-    `[Paper ${i + 1}] "${p.title}" (${p.year || 'n.d.'}) by ${(p.authors || []).slice(0, 2).join(', ')}:\nAbstract/Summary: ${p.summary || ''}\nKey Findings: ${p.conclusion || ''}`
-  ).join('\n\n---\n\n');
+  console.log(`🧠 [Groq] Generating literature review... | Papers: ${contextParts.length}`);
+
+  // Build citation keys in Author (Year) format for the LLM to use inline
+  const contextText = contextParts.map((p, i) => {
+    const firstAuthorSurname = (p.authors[0] || 'Unknown').split(' ').pop();
+    const citeKey = `${firstAuthorSurname} (${p.year})`;
+    const allAuthors = p.authors.length > 2
+      ? `${p.authors[0]} et al.`
+      : p.authors.join(' & ') || 'Unknown';
+
+    return [
+      `--- PAPER ${i + 1} ---`,
+      `Citation key: ${citeKey}`,
+      `Full reference: ${allAuthors} (${p.year}). "${p.title}."`,
+      `Topics/Keywords: ${p.tags.join(', ') || 'N/A'}`,
+      `Abstract: ${p.abstract || 'Not available.'}`,
+      `Methodology: ${p.methodology || 'Not explicitly described.'}`,
+      `Dataset/Corpus: ${p.dataset || 'Not specified.'}`,
+      `Results & Findings: ${p.results || 'Not available.'}`,
+      `Conclusions: ${p.conclusion || 'Not available.'}`,
+      `Limitations: ${p.limitations || 'Not explicitly stated.'}`,
+    ].join('\n');
+  }).join('\n\n');
+
+  // Build the full references list for the end of the review
+  const referencesList = contextParts.map((p, i) => {
+    const authors = p.authors.join(', ') || 'Unknown';
+    return `[${i + 1}] ${authors} (${p.year}). "${p.title}."`;
+  }).join('\n');
+
+  const systemPrompt = `You are an expert academic researcher writing a formal literature review for a peer-reviewed journal or thesis. You have been given structured data extracted from ${contextParts.length} research papers.
+
+Write a comprehensive, well-structured literature review following these EXACT sections in order, using ## markdown headers:
+
+## Introduction
+Introduce the research domain, explain why these papers are relevant to review together, and state what this review covers. 2–3 paragraphs. Do NOT use bullet points here.
+
+## Thematic Overview
+Identify 2–4 major themes that cut across the papers. For each theme, discuss how multiple papers address it, compare their approaches and findings, and use inline citations in Author (Year) format throughout. Do NOT simply summarize each paper one by one — cross-reference them.
+
+## Methodology Comparison
+Compare the research methodologies used across the papers. Discuss: experimental vs. theoretical approaches, datasets or corpora used, evaluation metrics employed, model architectures or techniques. Present this as a comparative narrative, not a table or list. Cite papers inline.
+
+## Agreements and Contradictions
+Where do these papers agree? Where do they reach different or conflicting conclusions? Be specific — cite which papers agree and which diverge, and on what specific points.
+
+## Limitations and Research Gaps
+Critically analyze what is missing or understudied across this body of work. What questions remain unanswered? What methodological weaknesses are shared? What future work is needed? This section should demonstrate critical thinking, not just summarize stated limitations.
+
+## Conclusion
+Synthesize the overall state of knowledge in this area based on these papers. What does the collective evidence suggest? What is the most promising direction forward? 1–2 paragraphs.
+
+## References
+List all papers in numbered format: [1] Authors (Year). "Title."
+
+STRICT RULES:
+- Total length: 1500–2500 words across all sections (not counting the References section)
+- Always use Author (Year) inline citation format — never refer to a paper as "Paper 1" or "the first paper"
+- Write in formal academic prose throughout — no bullet points except in References
+- Do NOT start with "Here is the literature review" or any conversational filler
+- Do NOT pad sections with generic statements about "the importance of research" — every sentence must carry specific information from the papers
+- If a section of a paper (methodology, dataset, limitations) was not available, acknowledge the gap critically rather than skipping it
+- Use transitional phrases between sections to maintain flow`;
 
   const messages = [
+    { role: 'system', content: systemPrompt },
     {
-      role: "system",
-      content: `You are an expert academic writer synthesizing multiple research papers into a cohesive literature review.
-Given summaries and excerpts of multiple papers, write a structured literature review.
-
-You MUST include these exact sections (using markdown headers ##):
-## Overview
-## Common Themes & Agreements
-## Contradictions & Debates
-## Research Gaps & Future Directions
-## Conclusion
-
-RULES:
-1. Be specific and heavily cite papers by their provided title or authors.
-2. Write in a formal, academic style.
-3. Don't simply list paper summaries. Synthesize the findings into a narrative.
-4. Keep the total length around 500-700 words.
-5. Do not include introductory conversational filler like "Here is the review".`
-    },
-    {
-      role: "user",
-      content: `Context from papers:\n\n${contextText}`
+      role: 'user',
+      content: `Here is the extracted data from the ${contextParts.length} papers to review:\n\n${contextText}\n\nPlease write the full literature review now. Use the citation keys provided. End with the References section:\n\n${referencesList}`
     }
   ];
 
@@ -446,23 +486,29 @@ RULES:
     const fullText = await readStreamWithTimeout(
       groq.chat.completions.create({
         model: CHAT_MODEL,
-        messages: messages,
-        temperature: 0.3,
-        max_tokens: 1500,
+        messages,
+        temperature: 0.4,
+        max_tokens: 4096,
         stream: true,
       }),
       streamCallback
     );
     return fullText;
   } catch (error) {
-    console.error("❌ Groq Lit Review Error:", error.message);
-    // Fallback to 8B model on rate limit
+    console.error('❌ Groq Lit Review Error:', error.message);
     if (error.status === 429 || error.message?.includes('429')) {
-      console.log('🔄 429 Detected: Falling back to 8B model for lit review...');
-      if (streamCallback) streamCallback('\n\n[⚡ Switched to fast model due to rate limits]\n\n');
+      console.log('🔄 429: Falling back to summary model for lit review...');
+      if (streamCallback) streamCallback('\n\n[⚡ Switched to fast model due to rate limits — output may be shorter]\n\n');
       try {
+        // On fallback model, reduce max_tokens to avoid hitting limits
         const fallbackText = await readStreamWithTimeout(
-          groq.chat.completions.create({ model: SUMMARY_MODEL, messages, temperature: 0.3, max_tokens: 1500, stream: true }),
+          groq.chat.completions.create({
+            model: SUMMARY_MODEL,
+            messages,
+            temperature: 0.4,
+            max_tokens: 2048,
+            stream: true,
+          }),
           streamCallback
         );
         return fallbackText;
@@ -470,7 +516,7 @@ RULES:
         console.error('❌ Lit review fallback also failed:', fbErr.message);
       }
     }
-    const errorMsg = `⚠️ Literature review failed: ${error.message}`;
+    const errorMsg = `⚠️ Literature review generation failed: ${error.message}`;
     if (streamCallback) streamCallback(errorMsg);
     return errorMsg;
   }
@@ -589,6 +635,50 @@ Example format:
   }
 }
 
+async function generatePaperTags(paper) {
+  console.log("🧠 [Groq] Generating paper tags...");
+  
+  let contextStr = "Title: " + paper.title + "\n";
+  if (paper.chunks && paper.chunks.length > 0) {
+      contextStr += "Content snippet: " + paper.chunks[0].chunkText.substring(0, 500) + "\n";
+  } else if (paper.summaryPreview) {
+      contextStr += "Summary: " + paper.summaryPreview + "\n";
+  }
+
+  try {
+    const response = await groq.chat.completions.create({
+      model: SUMMARY_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `Return exactly 5 topic tags for this research paper as a JSON array of strings. No explanation. Example: ["Machine Learning", "Neural Networks", "NLP", "Optimization", "Algorithms"]`
+        },
+        {
+          role: "user",
+          content: `Paper Context:\n\n${contextStr}`
+        }
+      ],
+      temperature: 0.3
+    });
+
+    const content = response.choices[0].message.content.trim();
+    try {
+      const start = content.indexOf('[');
+      const end = content.lastIndexOf(']') + 1;
+      if (start !== -1 && end !== 0) {
+        return JSON.parse(content.slice(start, end));
+      }
+      return JSON.parse(content);
+    } catch (e) {
+        console.error("❌ Tag Parse Error:", e, content);
+        return [];
+    }
+  } catch (error) {
+    console.error("❌ Groq Tag Error:", error.message);
+    return [];
+  }
+}
+
 module.exports = { 
   generateSummary, 
   generateStructuredSummary, 
@@ -598,5 +688,6 @@ module.exports = {
   generateComparison,
   generateLiteratureReview,
   generateMethodologyCritique,
-  generateFlashcards
+  generateFlashcards,
+  generatePaperTags
 };

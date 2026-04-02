@@ -37,14 +37,32 @@ exports.generateLitReview = async (req, res) => {
         continue;
       }
       const p = JSON.parse(fs.readFileSync(paperPath, 'utf8'));
+      if (p.userId !== req.user.userId) continue;
+      
+      const sections = p.sections || {};
+
+      // Build a structured context object with all academically relevant parts
       contextParts.push({
         title: p.title || 'Untitled',
-        year: p.year,
-        authors: p.authors?.map(a => a.authorName || a) || [],
-        summary: (p.summaryPreview || '').slice(0, 5000),
-        conclusion: (p.sections?.conclusion || p.sections?.results || '').slice(0, 5000)
+        year: p.year || 'n.d.',
+        authors: (p.authors || []).map(a => a.authorName || a).slice(0, 3),
+        abstract: (sections.abstract || p.summaryPreview || '').slice(0, 800),
+        methodology: (sections.methodology || sections.methods || sections.approach || '').slice(0, 1000),
+        results: (sections.results || sections.findings || sections.experiments || '').slice(0, 1000),
+        conclusion: (sections.conclusion || sections.discussion || '').slice(0, 800),
+        limitations: (sections.limitations || sections.futurework || sections['future work'] || '').slice(0, 600),
+        // Pull key terms from tags if available
+        tags: (p.tags || []).slice(0, 6),
+        // Dataset/benchmark info if present in any section
+        dataset: (sections.dataset || sections.data || sections.corpus || '').slice(0, 400),
       });
     }
+
+    const loadedTitles = contextParts.map(p => `"${p.title}"`).join(', ');
+    sendSocket('litreview:status', {
+      status: 'generating',
+      message: `Loaded ${contextParts.length} papers: ${loadedTitles}. Writing literature review...`
+    });
 
     if (missing.length > 0) {
       sendSocket('litreview:warning', { warning: `Some papers were missing on disk: ${missing.join(', ')}` });
