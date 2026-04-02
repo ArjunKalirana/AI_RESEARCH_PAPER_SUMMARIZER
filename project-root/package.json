@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node app.js",
     "build": "npm run build:css",
-    "build:css": "npx tailwindcss -i ./frontend/input.css -o ./frontend/dist/output.css --minify",
+    "build:css": "mkdir -p ./frontend/dist && npx tailwindcss -i ./frontend/input.css -o ./frontend/dist/output.css --minify",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

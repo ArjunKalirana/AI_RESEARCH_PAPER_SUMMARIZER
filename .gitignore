@@ -372,3 +372,6 @@ coverage/
 # Service local stores
 faiss-service/index_store/
 project-root/uploads/
+
+# Ensure compiled CSS is tracked
+!project-root/frontend/dist/
