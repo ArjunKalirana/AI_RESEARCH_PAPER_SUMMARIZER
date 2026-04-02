@@ -5,7 +5,7 @@ const guestLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
     max: 50, 
     message: { error: 'Rate limit exceeded for this shared link. Please try again later.' },
-    keyGenerator: (req) => req.query.shareToken || req.headers['x-share-token'] || req.ip
+    keyGenerator: (req) => req.ip
 });
 
 async function shareAuth(req, res, next) {

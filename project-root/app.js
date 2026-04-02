@@ -24,6 +24,8 @@ const exportRoutes = require('./routes/export.route');
 const authRoutes = require('./routes/auth.route');
 
 const app = express();
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
@@ -58,25 +60,38 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// NOTE: Do NOT add compression middleware without an SSE filter to skip /api/ask and /api/compare
-
 // Request Logger diagnostic
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
 });
 
-// Diagnostic: Check if frontend exists in the container
-const frontendPath = path.resolve(__dirname, 'frontend');
-if (fs.existsSync(frontendPath)) {
-    console.log("✅ Frontend folder found at (resolved):", frontendPath);
-    console.log("📂 Content:", fs.readdirSync(frontendPath));
-} else {
-    console.error("❌ Frontend folder NOT found at (resolved):", frontendPath);
+// Robust Frontend Path Resolution
+const possiblePaths = [
+  path.resolve(__dirname, 'frontend'),
+  path.resolve(__dirname, '../frontend'),
+  path.resolve(process.cwd(), 'frontend'),
+  path.resolve(process.cwd(), 'project-root', 'frontend')
+];
+
+let frontendPath = null;
+for (const p of possiblePaths) {
+  if (fs.existsSync(p)) {
+    frontendPath = p;
+    console.log("✅ Frontend folder found at:", frontendPath);
+    break;
+  }
 }
 
-// Serve frontend static files
-app.use(express.static(frontendPath));
+if (!frontendPath) {
+  console.error("❌ Frontend folder NOT found in any expected location");
+}
+
+// Serve compiled CSS first to prevent shadowing
+if (frontendPath) {
+  app.use('/dist', express.static(path.join(frontendPath, 'dist')));
+  app.use(express.static(frontendPath));
+}
 
 // Explicit Root Handler
 app.get('/', (req, res) => {
