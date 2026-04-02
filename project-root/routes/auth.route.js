@@ -11,6 +11,13 @@ router.post('/register', async (req, res) => {
     }
 
     const user = await registerUser(email, password);
+    
+    // Explicitly check for JWT_SECRET before signing
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ LOGIN_ERROR: JWT_SECRET environment variable is not defined.');
+      return res.status(500).json({ error: 'Server configuration error: missing JWT_SECRET' });
+    }
+
     const token = signToken(user.userId, user.email);
 
     res.cookie('token', token, {
@@ -34,6 +41,13 @@ router.post('/login', async (req, res) => {
     }
 
     const user = await loginUser(email, password);
+
+    // Explicitly check for JWT_SECRET before signing
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ LOGIN_ERROR: JWT_SECRET environment variable is not defined.');
+      return res.status(500).json({ error: 'Server configuration error: missing JWT_SECRET' });
+    }
+
     const token = signToken(user.userId, user.email);
 
     res.cookie('token', token, {
@@ -45,6 +59,7 @@ router.post('/login', async (req, res) => {
 
     res.json({ token, user });
   } catch (err) {
+    console.error(`❌ AUTH_LOGIN_ERROR [${new Date().toISOString()}]:`, err.message);
     res.status(400).json({ error: err.message });
   }
 });

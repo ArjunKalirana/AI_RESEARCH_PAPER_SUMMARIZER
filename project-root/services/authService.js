@@ -43,11 +43,13 @@ async function registerUser(email, password) {
       const passwordHash = await bcrypt.hash(password, 12);
       db.run(`INSERT INTO Users (email, passwordHash) VALUES (?, ?)`, [email, passwordHash], function (err) {
         if (err) {
+          console.error(`❌ DB_REGISTER_ERROR [${email}]:`, err.message);
           if (err.message.includes('UNIQUE constraint failed')) {
             return reject(new Error('Email already exists'));
           }
           return reject(err);
         }
+        console.log(`✅ DB_REGISTER_SUCCESS: Created user ${this.lastID} (${email})`);
         resolve({ userId: this.lastID, email });
       });
     } catch (e) {
@@ -59,12 +61,22 @@ async function registerUser(email, password) {
 function loginUser(email, password) {
   return new Promise((resolve, reject) => {
     db.get(`SELECT id, email, passwordHash FROM Users WHERE email = ?`, [email], async (err, row) => {
-      if (err) return reject(err);
-      if (!row) return reject(new Error('Invalid email or password'));
+      if (err) {
+        console.error(`❌ DB_LOGIN_QUERY_ERROR [${email}]:`, err.message);
+        return reject(err);
+      }
+      if (!row) {
+        console.warn(`⚠️  DB_LOGIN_NOT_FOUND: User ${email} not found.`);
+        return reject(new Error('Invalid email or password'));
+      }
       
       const isValid = await bcrypt.compare(password, row.passwordHash);
-      if (!isValid) return reject(new Error('Invalid email or password'));
+      if (!isValid) {
+        console.warn(`⚠️  DB_LOGIN_INVALID_PASSWORD: Incorrect password for ${email}.`);
+        return reject(new Error('Invalid email or password'));
+      }
       
+      console.log(`✅ DB_LOGIN_SUCCESS: User ${row.id} (${email}) logged in.`);
       resolve({ userId: row.id, email: row.email });
     });
   });

@@ -89,7 +89,7 @@
       <div class="bg-primary p-1.5 rounded-lg text-white">
         <span class="material-symbols-outlined text-xl block">auto_awesome</span>
       </div>
-      <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ReseachAi</h1>
+      <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ResearchAI</h1>
     </div>
     <nav class="hidden md:flex items-center gap-12">
       <div class="flex items-center gap-2 text-primary font-semibold border-b-2 border-primary pb-5 mt-5">
@@ -315,7 +315,7 @@
   </div>
 </footer>
 
-<script>\n
+<script>
     const authToken = localStorage.getItem('authToken');
     if (!authToken) { window.location.href = '/login.html'; }
     window.addEventListener('DOMContentLoaded', () => {
@@ -345,9 +345,9 @@
           config.headers['Authorization'] = 'Bearer ' + t;
         }
       }
-      return originalFetch(resource, config);
+    return originalFetch(resource, config);
     };
-\n
+
   const STAGES = ['parsing', 'cleaning', 'sections', 'chunking', 'indexing', 'summarizing'];
 
   const dropzoneWrapper   = document.getElementById('dropzoneWrapper');
