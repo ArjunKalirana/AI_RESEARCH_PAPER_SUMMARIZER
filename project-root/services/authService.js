@@ -1,41 +1,6 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
-const dbPath = path.join(__dirname, '../data/sessions.db');
-
-const dataDir = path.dirname(dbPath);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('❌ Could not connect to SQLite Session DB', err.message);
-  } else {
-    db.run(`
-      CREATE TABLE IF NOT EXISTS Users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        passwordHash TEXT NOT NULL,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    db.run(`
-      CREATE TABLE IF NOT EXISTS PaperShares (
-        shareToken TEXT PRIMARY KEY,
-        paperId TEXT NOT NULL,
-        ownerUserId INTEGER NOT NULL,
-        permissions TEXT DEFAULT '{"canView":true,"canChat":true}',
-        createdAt INTEGER DEFAULT (strftime('%s','now')),
-        expiresAt INTEGER DEFAULT NULL,
-        isRevoked INTEGER DEFAULT 0
-      )
-    `);
-  }
-});
+const db = require('./db');
 
 async function registerUser(email, password) {
   return new Promise(async (resolve, reject) => {

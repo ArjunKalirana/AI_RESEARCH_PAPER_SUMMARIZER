@@ -61,30 +61,33 @@ async function getLibrary(req, res) {
 
 async function deletePaper(req, res) {
   const { paperId } = req.params;
+  const jsonPath = path.join(DATA_DIR, `${paperId}.json`);
+
+  // STEP 1: Ownership check FIRST — before any destructive operation
+  if (!fs.existsSync(jsonPath)) {
+    return res.status(404).json({ error: 'Paper not found.' });
+  }
+  let paperData;
   try {
-    // 1. Delete from Neo4j
-    const deleteQuery = `
-      MATCH (p:ResearchPaper {paperId: $paperId})
-      DETACH DELETE p
-    `;
-    await runQuery(deleteQuery, { paperId });
+    paperData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  } catch (e) {
+    return res.status(500).json({ error: 'Could not read paper data.' });
+  }
+  if (paperData.userId !== req.user.userId) {
+    return res.status(403).json({ error: 'Forbidden: You do not own this paper.' });
+  }
 
-    // 2. Delete local processed JSON
-    const jsonPath = path.join(DATA_DIR, `${paperId}.json`);
-    if (fs.existsSync(jsonPath)) {
-      const paperData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-      if (paperData.userId !== req.user.userId) {
-        return res.status(403).json({ error: 'Forbidden: You do not own this paper.' });
-      }
-      fs.unlinkSync(jsonPath);
-    }
+  try {
+    // STEP 2: Neo4j delete — only after ownership confirmed
+    await runQuery(`MATCH (p:ResearchPaper {paperId: $paperId}) DETACH DELETE p`, { paperId });
 
-    // 3. Call FAISS delete
-    try {
-      await axios.delete(`${FAISS_URL}/delete-index/${paperId}`, { timeout: 5000 });
-    } catch (faissErr) {
-      console.warn(`[Library] Failed to delete FAISS index for ${paperId}:`, faissErr.message);
-    }
+    // STEP 3: Delete JSON from disk
+    fs.unlinkSync(jsonPath);
+
+    // STEP 4: Delete FAISS index (non-blocking — don't fail the delete if FAISS is down)
+    axios.delete(`${FAISS_URL}/delete-index/${paperId}`, { timeout: 5000 }).catch(err =>
+      console.warn(`[Library] FAISS delete failed for ${paperId}:`, err.message)
+    );
 
     res.json({ success: true, message: `Paper ${paperId} deleted successfully.` });
   } catch (error) {

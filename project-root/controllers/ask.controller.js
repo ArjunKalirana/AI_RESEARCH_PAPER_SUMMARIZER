@@ -58,7 +58,7 @@ function getConfidenceLabel(score) {
  ================================ */
 async function askQuestion(req, res) {
   try {
-    const { socketId, paperId, paperIds: rawPaperIds, question, userId } = req.body || {};
+    const { socketId, paperId, paperIds: rawPaperIds, question } = req.body || {};
     const io = req.app.get('io');
     
     if (!socketId) {

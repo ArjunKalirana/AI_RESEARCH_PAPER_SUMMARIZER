@@ -32,12 +32,18 @@ exports.generateLitReview = async (req, res) => {
 
     for (const pid of paperIds) {
       const paperPath = path.join(PROCESSED_DIR, `${pid}.json`);
-      if (!fs.existsSync(paperPath)) {
-        missing.push(pid);
+      if (!fs.existsSync(paperPath)) { missing.push(pid); continue; }
+      const p = JSON.parse(fs.readFileSync(paperPath, 'utf8'));
+
+      // Ownership check — papers without userId are legacy uploads, treat as not owned
+      if (!p.userId) {
+        sendSocket('litreview:warning', { warning: `Paper "${p.title || pid}" has no owner record. Please re-upload it to use it in a literature review.` });
         continue;
       }
-      const p = JSON.parse(fs.readFileSync(paperPath, 'utf8'));
-      if (p.userId !== req.user.userId) continue;
+      if (p.userId !== req.user.userId) {
+        sendSocket('litreview:warning', { warning: `Forbidden: You do not own paper "${p.title || pid}". Skipping.` });
+        continue;
+      }
       
       const sections = p.sections || {};
 

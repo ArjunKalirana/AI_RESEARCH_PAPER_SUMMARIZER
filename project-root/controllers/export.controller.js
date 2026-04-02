@@ -45,7 +45,11 @@ function renderSection(doc, title, content) {
 }
 
 function sanitizeFilename(name) {
-  return name.replace(/[^\\w\\s-]/gi, '').trim().replace(/\\s+/g, '_');
+  return (name || 'document')
+    .replace(/[^\w\s\-]/g, '')   // remove non-word chars except spaces and hyphens
+    .trim()
+    .replace(/\s+/g, '_')        // spaces to underscores
+    .substring(0, 100);          // max 100 chars to avoid filesystem limits
 }
 
 async function exportSummaryPDF(req, res) {
@@ -175,18 +179,18 @@ async function exportChatTranscript(req, res) {
     
     const safeTitle = sanitizeFilename(paperTitle);
 
-    let md = `# Chat Transcript\\n\\n`;
-    md += `## Paper: ${paperTitle}\\n`;
-    md += `**Exported:** ${new Date().toLocaleString()}\\n\\n---\\n\\n`;
+    let md = `# Chat Transcript\n\n`;
+    md += `## Paper: ${paperTitle}\n`;
+    md += `**Exported:** ${new Date().toLocaleString()}\n\n---\n\n`;
 
     if (!history || history.length === 0) {
         md += `*No chat history available.*`;
     } else {
         history.forEach(msg => {
             if (msg.role === 'user') {
-                md += `### User\\n${msg.content}\\n\\n`;
+                md += `### User\n${msg.content}\n\n`;
             } else if (msg.role === 'assistant') {
-                md += `### AI\\n${msg.content}\\n\\n`;
+                md += `### AI\n${msg.content}\n\n`;
             }
         });
     }

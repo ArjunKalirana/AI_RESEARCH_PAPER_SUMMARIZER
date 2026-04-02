@@ -2,9 +2,10 @@
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 
+[[volumes]]
+mountPath = "/app/project-root/data"
+name = "ai_research_paper_summarizer-volume"
+
 [deploy.environmentVariables]
 NODE_ENV = "production"
-
-# Increase Railway's request timeout for LLM streaming responses
-# (default is 60s which is too short for slow LLM calls)
 PORT = "3000"

@@ -1,37 +1,4 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
-
-const dbPath = path.join(__dirname, '../data/sessions.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Error connecting to sessions DB for Library Meta:', err.message);
-    } else {
-        db.serialize(() => {
-            db.run(`
-                CREATE TABLE IF NOT EXISTS PaperMeta (
-                  paperId TEXT NOT NULL,
-                  userId INTEGER NOT NULL,
-                  starred INTEGER DEFAULT 0,
-                  userNotes TEXT DEFAULT '',
-                  tags TEXT DEFAULT '[]',
-                  collectionId TEXT DEFAULT NULL,
-                  lastOpenedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-                  PRIMARY KEY (paperId, userId)
-                )
-            `);
-            
-            db.run(`
-                CREATE TABLE IF NOT EXISTS Collections (
-                  id TEXT PRIMARY KEY,
-                  userId INTEGER NOT NULL,
-                  name TEXT NOT NULL,
-                  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-        });
-    }
-});
+const db = require('./db');
 
 function getPaperMeta(paperId, userId) {
   return new Promise((resolve, reject) => {
