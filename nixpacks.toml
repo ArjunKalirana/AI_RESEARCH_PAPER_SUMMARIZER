@@ -9,6 +9,11 @@ cmds = [
   "pip install -r faiss-service/requirements.txt"
 ]
 
+[phases.build]
+cmds = [
+  "npm run build --prefix project-root"
+]
+
 # This configuration supports Railway's "Root Directory" setting.
 # If you deploy with Root Directory = "project-root", it will use this if present.
 # But it's better to use variables for the start command.

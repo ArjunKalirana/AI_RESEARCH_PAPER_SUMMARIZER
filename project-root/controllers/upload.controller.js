@@ -26,10 +26,21 @@ async function uploadPaper(req, res) {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    
+    // Initial comment to establish H2 stream immediately
+    res.write(': established\n\n');
     res.flushHeaders();
+
+    // Heartbeat every 15s to keep connection alive through proxies
+    const heartbeat = setInterval(() => {
+        if (!clientGone && !res.writableEnded) {
+            res.write(': keep-alive\n\n');
+        }
+    }, 15000);
 
     req.on('close', () => {
       clientGone = true;
+      clearInterval(heartbeat);
       console.log('[upload-stream] Client disconnected — aborting pipeline.');
       if (req.file && req.file.path) {
         fs.unlink(req.file.path, () => {});
@@ -61,6 +72,19 @@ async function uploadPaper(req, res) {
     }
     if (!res.writableEnded) res.end();
   };
+
+  // ── Heartbeat ─────────────────────────────────────────────────────────────
+  const heartbeat = setInterval(() => {
+    if (!shouldAbort()) {
+      res.write(': keepalive\n\n');
+      if (typeof res.flush === 'function') res.flush();
+    } else {
+      clearInterval(heartbeat);
+    }
+  }, 15000);
+
+  res.on('close', () => { clearInterval(heartbeat); });
+  res.on('finish', () => { clearInterval(heartbeat); });
 
   try {
     if (!req.file) {
@@ -192,6 +216,7 @@ async function uploadPaper(req, res) {
 
     if (isSSE) {
       await sendEvent({ stage: 'done', label: 'Complete!', percent: 100, paperId });
+      // Final keep-alive clear not strictly needed as it clears on close/end
       res.end();
     } else {
       res.json({ success: true, paperId, title, summaryPreview });

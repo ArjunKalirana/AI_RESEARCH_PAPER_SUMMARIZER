@@ -4,6 +4,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node app.js",
+    "build": "npm run build:css",
+    "build:css": "npx tailwindcss -i ./frontend/input.css -o ./frontend/dist/output.css --minify",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -27,5 +29,10 @@
     "pdfkit": "^0.18.0",
     "socket.io": "^4.8.3",
     "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35"
   }
 }

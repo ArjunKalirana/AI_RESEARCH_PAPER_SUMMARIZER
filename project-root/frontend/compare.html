@@ -4,7 +4,7 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>ResearchAI - Compare Papers</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
+    <link href="dist/output.css" rel="stylesheet"/>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,50 +12,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <script src="js/toast.js"></script>
     <script src="/socket.io/socket.io.js"></script>
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#1e68f1",
-                        "background-light": "#f8fafc",
-                        "background-dark": "#0f172a",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"]
-                    },
-                },
-            },
-        }
-    </script>
-    <style type="text/tailwindcss">
-        body { font-family: 'Inter', sans-serif; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        
-        .paper-card.selected { @apply ring-2 ring-primary border-primary bg-primary/5; }
-        
-        @keyframes pulse-soft {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .animate-pulse-soft { animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-
-        .prose pre { @apply bg-slate-900 text-slate-100 p-4 rounded-xl border border-slate-800; }
-        .prose code { @apply bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-primary font-bold; }
-
-        .status-badge {
-            @apply inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md;
-        }
-        .status-ready {
-            @apply bg-green-100/50 text-green-600 dark:bg-green-500/10 dark:text-green-400;
-        }
-        .status-needs-reindex {
-            @apply bg-amber-100/50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400;
-        }
-    </style>
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
 
@@ -188,7 +144,7 @@
     </section>
 </main>
 
-<script>\n
+<script>
     const authToken = localStorage.getItem('authToken');
     if (!authToken) { window.location.href = '/login.html'; }
     window.addEventListener('DOMContentLoaded', () => {
@@ -220,7 +176,7 @@
       }
       return originalFetch(resource, config);
     };
-\n
+
     const paperGrid = document.getElementById('paperGrid');
     const startCompareBtn = document.getElementById('startCompareBtn');
     const selectionCounter = document.getElementById('selectionCounter');
