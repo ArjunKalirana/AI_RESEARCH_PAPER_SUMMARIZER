@@ -62,29 +62,52 @@ async function getLibrary(req, res) {
 async function deletePaper(req, res) {
   const { paperId } = req.params;
   const jsonPath = path.join(DATA_DIR, `${paperId}.json`);
+  let paperData = null;
+  let isOwner = false;
 
-  // STEP 1: Ownership check FIRST — before any destructive operation
-  if (!fs.existsSync(jsonPath)) {
-    return res.status(404).json({ error: 'Paper not found.' });
+  // STEP 1: Identification & Ownership Check
+  if (fs.existsSync(jsonPath)) {
+    try {
+      paperData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      isOwner = paperData.userId === req.user.userId;
+    } catch (e) {
+      console.warn(`[Library] Corrupt JSON for ${paperId}:`, e.message);
+    }
   }
-  let paperData;
-  try {
-    paperData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-  } catch (e) {
-    return res.status(500).json({ error: 'Could not read paper data.' });
+
+  // Fallback to Neo4j for ownership if JSON is missing or corrupt
+  if (!isOwner) {
+    try {
+      const dbCheck = await runQuery(
+        `MATCH (p:ResearchPaper {paperId: $paperId}) RETURN p.userId as ownerId`, 
+        { paperId }
+      );
+      if (dbCheck.records.length > 0) {
+        const ownerId = dbCheck.records[0].get('ownerId');
+        isOwner = ownerId === req.user.userId;
+      } else {
+        // If it's not on disk AND not in Neo4j, it really doesn't exist
+        return res.status(404).json({ error: 'Paper not found in database or library.' });
+      }
+    } catch (dbErr) {
+      return res.status(500).json({ error: 'Database error while verifying ownership.' });
+    }
   }
-  if (paperData.userId !== req.user.userId) {
+
+  if (!isOwner) {
     return res.status(403).json({ error: 'Forbidden: You do not own this paper.' });
   }
 
   try {
-    // STEP 2: Neo4j delete — only after ownership confirmed
+    // STEP 2: Neo4j delete
     await runQuery(`MATCH (p:ResearchPaper {paperId: $paperId}) DETACH DELETE p`, { paperId });
 
-    // STEP 3: Delete JSON from disk
-    fs.unlinkSync(jsonPath);
+    // STEP 3: Delete JSON from disk if it exists
+    if (fs.existsSync(jsonPath)) {
+      fs.unlinkSync(jsonPath);
+    }
 
-    // STEP 4: Delete FAISS index (non-blocking — don't fail the delete if FAISS is down)
+    // STEP 4: Delete FAISS index (non-blocking)
     axios.delete(`${FAISS_URL}/delete-index/${paperId}`, { timeout: 5000 }).catch(err =>
       console.warn(`[Library] FAISS delete failed for ${paperId}:`, err.message)
     );
@@ -92,7 +115,7 @@ async function deletePaper(req, res) {
     res.json({ success: true, message: `Paper ${paperId} deleted successfully.` });
   } catch (error) {
     console.error('[Library] Error deleting paper:', error);
-    res.status(500).json({ error: 'Failed to delete paper' });
+    res.status(500).json({ error: 'Failed to delete paper from database.' });
   }
 }
 

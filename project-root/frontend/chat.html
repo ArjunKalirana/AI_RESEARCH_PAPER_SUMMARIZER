@@ -280,6 +280,18 @@
             let isFirstChunk = true;
             let fullText = "";
 
+            // 2.5 Add placeholder for pending suggestions immediately
+            const placeholderHtml = `
+                <div class="suggestions-placeholder flex items-center gap-2 mt-4 animate-pulse">
+                    <div class="h-8 w-48 bg-slate-100 dark:bg-slate-800/50 rounded-full border border-slate-200 dark:border-slate-800 text-[10px] flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest gap-2">
+                        <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                        Generating Suggestions...
+                    </div>
+                </div>
+            `;
+            const body = document.getElementById(loadingId).querySelector('.message-body');
+            body.insertAdjacentHTML('beforeend', placeholderHtml);
+
             // Cleanup previous listeners to avoid duplicates
             socket.off('ask:chunk');
             socket.off('ask:status');
@@ -456,16 +468,7 @@
                 body.insertAdjacentHTML('beforeend', sourceHtml);
             }
             
-            // Add placeholder for pending suggestions
-            const placeholderHtml = `
-                <div class="suggestions-placeholder flex items-center gap-2 mt-4 animate-pulse">
-                    <div class="h-8 w-48 bg-slate-100 dark:bg-slate-800/50 rounded-full border border-slate-200 dark:border-slate-800 text-[10px] flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest gap-2">
-                        <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                        Generating Suggestions...
-                    </div>
-                </div>
-            `;
-            body.insertAdjacentHTML('beforeend', placeholderHtml);
+            }
         }
 
         function renderSuggestions(id, suggestions) {
