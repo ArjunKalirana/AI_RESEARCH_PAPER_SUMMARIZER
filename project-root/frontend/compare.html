@@ -66,6 +66,41 @@
             background: rgba(255, 255, 255, 0.05);
             color: white;
         }
+
+        /* Research Prose Styling */
+        .prose-research {
+            color: var(--slate-900);
+            line-height: 1.8;
+        }
+        .dark .prose-research {
+            color: var(--slate-100);
+        }
+        .prose-research h1, .prose-research h2, .prose-research h3 {
+            font-weight: 800 !important;
+            letter-spacing: -0.02em !important;
+            margin-top: 2rem !important;
+            margin-bottom: 1rem !important;
+            color: #1e68f1 !important; /* Blue theme for comparison headers */
+        }
+        .prose-research h1 { font-size: 1.5rem; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; }
+        .dark .prose-research h1 { border-bottom-color: rgba(255,255,255,0.05); }
+        .prose-research h2 { font-size: 1.35rem; }
+        .prose-research h3 { font-size: 1.2rem; }
+        .prose-research p { margin-bottom: 1.25rem; }
+        .prose-research strong { font-weight: 700; color: #1e68f1; }
+        .prose-research blockquote {
+            margin: 1.5rem 0;
+            padding: 0.5rem 1rem 0.5rem 1.5rem;
+            border-left: 4px solid #1e68f1;
+            background: rgba(30, 104, 241, 0.05);
+            font-style: italic;
+            color: #64748b;
+            border-radius: 0 8px 8px 0;
+        }
+        .prose-research ul, .prose-research ol { margin-bottom: 1.25rem; padding-left: 1.5rem; }
+        .prose-research li { margin-bottom: 0.5rem; }
+        .prose-research hr { border: none; border-top: 1px solid rgba(0,0,0,0.05); margin: 2rem 0; }
+        .dark .prose-research hr { border-top-color: rgba(255,255,255,0.05); }
     </style>
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
@@ -208,7 +243,7 @@
         <!-- Answer Display -->
         <div id="answerArea" class="hidden bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
             <div class="p-8 border-b border-slate-50 dark:border-slate-800">
-                <div id="streamingAnswer" class="prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed">
+                <div id="streamingAnswer" class="prose-research max-w-none text-sm leading-relaxed">
                     <!-- Streamed content -->
                     <div class="flex gap-2 items-center text-slate-400 animate-pulse-soft">
                         <span class="material-symbols-outlined spin">sync</span>

@@ -247,6 +247,35 @@
             color: white;
         }
 
+        /* Research Prose Styling */
+        .prose-research {
+            color: var(--text-main);
+            line-height: 1.8;
+        }
+        .prose-research h1, .prose-research h2, .prose-research h3 {
+            font-weight: 800 !important;
+            letter-spacing: -0.02em !important;
+            margin-top: 2rem !important;
+            margin-bottom: 1rem !important;
+            color: var(--accent) !important;
+        }
+        .prose-research h1 { font-size: 1.5rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+        .prose-research h2 { font-size: 1.35rem; }
+        .prose-research h3 { font-size: 1.2rem; }
+        .prose-research p { margin-bottom: 1.25rem; }
+        .prose-research strong { font-weight: 700; color: var(--accent); }
+        .prose-research blockquote {
+            margin: 1.5rem 0;
+            padding: 0.5rem 1rem 0.5rem 1.5rem;
+            border-left: 4px solid var(--accent);
+            background: rgba(79, 142, 247, 0.05);
+            font-style: italic;
+            color: var(--text-dim);
+            border-radius: 0 8px 8px 0;
+        }
+        .prose-research ul, .prose-research ol { margin-bottom: 1.25rem; padding-left: 1.5rem; }
+        .prose-research li { margin-bottom: 0.5rem; }
+        .prose-research hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
     </style>
     <script src="js/toast.js"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -444,7 +473,7 @@
                     <span class="loader-pulse" style="margin-bottom:1rem; width:24px; height:24px;"></span>
                     <p id="litReviewStatusMsg">Synthesizing papers... (May take 30-60s)</p>
                 </div>
-                <div id="litReviewMarkdown"></div>
+                <div id="litReviewMarkdown" class="prose-research"></div>
             </div>
             <div id="litReviewFooter" style="padding:1rem 1.5rem; border-top:1px solid var(--border); display:none; justify-content:flex-end; gap:1rem;">
                 <button id="copyLitBtn" style="background:transparent; border:1px solid var(--border); color:var(--text-main); padding:0.5rem 1rem; border-radius:6px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:0.5rem;">

@@ -40,7 +40,7 @@ class Annotator {
 
         // Sidebar Toggle Button
         this.toggleBtn = document.createElement('button');
-        this.toggleBtn.className = 'fixed right-6 bottom-24 w-12 h-12 bg-primary text-white rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all z-40 flex items-center justify-center';
+        this.toggleBtn.className = 'fixed right-6 bottom-32 md:bottom-24 w-12 h-12 bg-primary text-white rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all z-40 flex items-center justify-center';
         this.toggleBtn.innerHTML = '🔖';
         document.body.appendChild(this.toggleBtn);
         
