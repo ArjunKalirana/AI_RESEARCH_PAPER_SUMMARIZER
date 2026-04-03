@@ -40,7 +40,7 @@ async function getLibrary(req, res) {
 
       if (hasLocalData && !isValidUser) return null;
       
-      const meta = metaMap[paperId] || { starred: 0, userNotes: '', tags: [], collectionId: null, lastOpenedAt: null };
+      const meta = metaMap[paperId] || { starred: 0, userNotes: '', tags: [], collectionId: null, summary: '', lastOpenedAt: null };
       
       return {
         paperId,

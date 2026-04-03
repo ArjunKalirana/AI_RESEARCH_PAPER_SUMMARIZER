@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ResearchAI - Paper Library</title>
+    <link href="dist/output.css" rel="stylesheet"/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
@@ -76,6 +77,39 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Responsiveness */
+        @media (max-width: 1024px) {
+            .sidebar {
+                display: none;
+            }
+            .main-content {
+                padding: 1rem;
+            }
+            .action-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .search-wrapper {
+                max-width: none;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .library-grid {
+                grid-template-columns: 1fr;
+            }
+            .card-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .action-group {
+                justify-content: space-between;
+                margin-top: 0.5rem;
+            }
         }
 
         .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; }
@@ -213,6 +247,7 @@
         };
     </script>
 
+    <!-- Top Navigation Bar -->
     <header class="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl dark:border-slate-800">
       <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center text-sm">
         <div class="flex items-center gap-8">
@@ -220,18 +255,18 @@
             <div class="bg-primary p-1.5 rounded-lg text-white shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
               <span class="material-symbols-outlined text-lg block">auto_stories</span>
             </div>
-            <span class="font-bold text-base tracking-tight" style="color: #fff">ResearchAI</span>
+            <span class="font-bold text-base tracking-tight text-slate-900 dark:text-white">ResearchAI</span>
           </div>
           <nav class="hidden md:flex items-center gap-6">
-            <a class="font-medium text-slate-400 hover:text-white transition-colors" href="upload.html">Upload</a>
+            <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="upload.html">Upload</a>
             <a class="font-bold text-primary" href="library.html">Library</a>
-            <a class="font-medium text-slate-400 hover:text-white transition-colors" href="summary.html">Summary</a>
-            <a class="font-medium text-slate-400 hover:text-white transition-colors" href="chat.html">Ask AI</a>
-            <a class="font-medium text-slate-400 hover:text-white transition-colors" href="compare.html">Compare</a>
+            <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="summary.html">Summary</a>
+            <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="chat.html">Ask AI</a>
+            <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="compare.html">Compare</a>
           </nav>
         </div>
         <div class="flex items-center gap-4">
-          <button onclick="toggleMobileMenu()" class="md:hidden p-2 text-slate-300">
+          <button onclick="toggleMobileMenu()" class="md:hidden p-2 text-slate-600 dark:text-slate-300">
             <span class="material-symbols-outlined">menu</span>
           </button>
           <button onclick="logout()" class="hidden md:block text-xs font-bold text-red-500 hover:text-red-600 transition-colors">Sign Out</button>
@@ -460,21 +495,26 @@
                         </div>
 
                         <div class="card-actions">
-                            <a href="chat.html?paperId=${paper.paperId}" class="btn-chat">
-                                <span class="material-symbols-outlined" style="font-size:16px;">forum</span> Chat
-                            </a>
+                            <div class="flex gap-2">
+                                <a href="chat.html?paperId=${paperId}" class="btn-chat">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">forum</span> Chat
+                                </a>
+                                <a href="summary.html?paperId=${paperId}" class="btn-chat" style="background: var(--primary); color: white; border: none;">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">description</span> Summary
+                                </a>
+                            </div>
                             <div class="action-group">
-                                <select class="collection-select" onchange="updateCollection('${paper.paperId}', this.value)">
-                                    <option value="">Move to...</option>
+                                <select class="collection-select" onchange="updateCollection('${paperId}', this.value)">
+                                    <option value="">Move...</option>
                                     ${collectionOptions}
                                 </select>
-                                <button class="btn-small" onclick="sharePaper('${paper.paperId}')" title="Share Paper">
+                                <button class="btn-small" onclick="sharePaper('${paperId}')" title="Share Paper">
                                     <span class="material-symbols-outlined" style="font-size:18px;">share</span>
                                 </button>
-                                <button class="btn-small" onclick="toggleNotes('${paper.paperId}')" title="Notes">
+                                <button class="btn-small" onclick="toggleNotes('${paperId}')" title="Notes">
                                     <span class="material-symbols-outlined" style="font-size:18px;">edit_note</span>
                                 </button>
-                                <button class="btn-small" onclick="deletePaper('${paper.paperId}')" title="Delete">
+                                <button class="btn-small" onclick="deletePaper('${paperId}')" title="Delete">
                                     <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
                                 </button>
                             </div>

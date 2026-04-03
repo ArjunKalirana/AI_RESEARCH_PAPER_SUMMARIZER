@@ -35,11 +35,12 @@ function updatePaperMeta(paperId, userId, updateFields) {
           starred: updateFields.starred !== undefined ? updateFields.starred : 0,
           userNotes: updateFields.userNotes !== undefined ? updateFields.userNotes : '',
           tags: updateFields.tags !== undefined ? (typeof updateFields.tags === 'string' ? updateFields.tags : JSON.stringify(updateFields.tags)) : '[]',
-          collectionId: updateFields.collectionId !== undefined ? updateFields.collectionId : null
+          collectionId: updateFields.collectionId !== undefined ? updateFields.collectionId : null,
+          summary: updateFields.summary !== undefined ? updateFields.summary : ''
         };
         db.run(
-          'INSERT INTO PaperMeta (paperId, userId, starred, userNotes, tags, collectionId) VALUES (?, ?, ?, ?, ?, ?)',
-          [record.paperId, record.userId, record.starred, record.userNotes, record.tags, record.collectionId],
+          'INSERT INTO PaperMeta (paperId, userId, starred, userNotes, tags, collectionId, summary) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [record.paperId, record.userId, record.starred, record.userNotes, record.tags, record.collectionId, record.summary],
           function(err) {
             if (err) return reject(err);
             resolve({ ...record, tags: JSON.parse(record.tags) });
@@ -50,14 +51,15 @@ function updatePaperMeta(paperId, userId, updateFields) {
         const userNotes = updateFields.userNotes !== undefined ? updateFields.userNotes : existing.userNotes;
         const tags = updateFields.tags !== undefined ? (typeof updateFields.tags === 'string' ? updateFields.tags : JSON.stringify(updateFields.tags)) : existing.tags;
         const collectionId = updateFields.collectionId !== undefined ? updateFields.collectionId : existing.collectionId;
+        const summary = updateFields.summary !== undefined ? updateFields.summary : existing.summary;
         const lastOpenedAt = updateFields.lastOpenedAt !== undefined ? updateFields.lastOpenedAt : existing.lastOpenedAt;
 
         db.run(
-          'UPDATE PaperMeta SET starred = ?, userNotes = ?, tags = ?, collectionId = ?, lastOpenedAt = ? WHERE paperId = ? AND userId = ?',
-          [starred, userNotes, tags, collectionId, lastOpenedAt, paperId, userId],
+          'UPDATE PaperMeta SET starred = ?, userNotes = ?, tags = ?, collectionId = ?, summary = ?, lastOpenedAt = ? WHERE paperId = ? AND userId = ?',
+          [starred, userNotes, tags, collectionId, summary, lastOpenedAt, paperId, userId],
           function(err) {
             if (err) return reject(err);
-            resolve({ paperId, userId, starred, userNotes, tags: typeof tags === 'string' ? JSON.parse(tags) : tags, collectionId, lastOpenedAt });
+            resolve({ paperId, userId, starred, userNotes, tags: typeof tags === 'string' ? JSON.parse(tags) : tags, collectionId, summary, lastOpenedAt });
           }
         );
       }

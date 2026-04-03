@@ -282,7 +282,12 @@
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center justify-between mb-2">
                                 ${statusBadge}
-                                <div class="text-[10px] font-bold text-slate-400">${paper.year || 'N/A'}</div>
+                                <div class="flex items-center gap-2">
+                                    <div class="text-[10px] font-bold text-slate-400">${paper.year || 'N/A'}</div>
+                                    <button onclick="event.stopPropagation(); deletePaper('${paper.paperId}')" class="text-slate-300 hover:text-red-500 transition-colors p-1">
+                                        <span class="material-icons text-sm">delete</span>
+                                    </button>
+                                </div>
                             </div>
                             <h3 class="font-bold text-sm leading-tight mb-1 group-hover:text-primary transition-colors truncate">${paper.title}</h3>
                             <p class="text-[10px] text-slate-400 font-medium uppercase truncate w-full">${(paper.authors || []).join(', ') || 'N/A'}</p>
@@ -318,6 +323,25 @@
 
         } catch (e) {
             paperGrid.innerHTML = `<div class="col-span-full py-12 text-center text-red-400">Error loading library.</div>`;
+        }
+    }
+
+    async function deletePaper(paperId) {
+        if (!confirm('Are you sure you want to delete this paper? This will remove all analysis and indexes.')) return;
+        try {
+            const res = await fetch(`/api/library/${paperId}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('Paper deleted successfully');
+                // Remove from selected papers if it was there
+                selectedPapers = selectedPapers.filter(id => id !== paperId);
+                selectionCounter.textContent = `${selectedPapers.length} / 5 SELECTED`;
+                loadLibrary();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Delete failed', 'error');
+            }
+        } catch (e) {
+            showToast('Connection error', 'error');
         }
     }
 

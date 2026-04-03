@@ -41,9 +41,17 @@ const db = new sqlite3.Database(dbPath, (err) => {
       userNotes TEXT DEFAULT '',
       tags TEXT DEFAULT '[]',
       collectionId TEXT DEFAULT NULL,
+      summary TEXT DEFAULT '',
       lastOpenedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (paperId, userId)
     )`);
+    // Migration: Add summary column if it doesn't exist (SQLite doesn't support IF NOT EXISTS in ALTER)
+    db.run("ALTER TABLE PaperMeta ADD COLUMN summary TEXT DEFAULT ''", (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+            console.warn('⚠️ PaperMeta migration warning:', err.message);
+        }
+    });
+
     db.run(`CREATE TABLE IF NOT EXISTS Collections (
       id TEXT PRIMARY KEY,
       userId INTEGER NOT NULL,

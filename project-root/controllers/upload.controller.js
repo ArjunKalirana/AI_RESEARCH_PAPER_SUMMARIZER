@@ -208,7 +208,7 @@ async function uploadPaper(req, res) {
     // AI Tags Generation & Meta persistence
     const tags = await generatePaperTags(normalizedPaper);
     normalizedPaper.tags = tags;
-    await updatePaperMeta(paperId, userId, { tags });
+    await updatePaperMeta(paperId, userId, { tags, summary: summaryPreview });
     
     // ── Done ──────────────────────────────────────────────────────────────────
     const outPath = path.join(OUTPUT_DIR, `${paperId}.json`);
