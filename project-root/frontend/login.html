@@ -23,6 +23,16 @@
             background: #08040c;
         }
 
+        /* Autofill Override */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #08040c inset !important;
+            -webkit-text-fill-color: #fff !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
         .main-container {
             position: relative;
             width: 850px;
@@ -218,6 +228,10 @@
             color: #1e68f1;
             text-decoration: none;
             font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            z-index: 10;
+            pointer-events: auto;
         }
 
         .error-msg {
@@ -239,12 +253,13 @@
             justify-content: center;
             color: #fff;
             z-index: 3;
+            pointer-events: none; /* Let clicks pass through to forms below */
         }
 
         .info-text.login {
             right: 0;
             text-align: right;
-            padding: 0 40px 0 60px;
+            padding: 0 60px 0 100px; /* Increased inner padding to fix overflow */
         }
 
         .main-container.active .info-text.login .animation {
@@ -257,8 +272,7 @@
         .info-text.register {
             left: 0;
             text-align: left;
-            padding: 0 60px 0 40px;
-            pointer-events: none;
+            padding: 0 100px 0 60px; /* Increased inner padding to fix overflow */
             transform: translateX(-120%);
             opacity: 0;
             filter: blur(10px);
