@@ -1006,7 +1006,7 @@ Section-by-Section Analysis
         `;
 
         try {
-            const res = await fetch(`/api/summary/regenerate/${paperId}`);
+            const res = await fetch(`/api/regenerate/${paperId}`);
             if (!res.ok) throw new Error("Regeneration failed");
             
             // Reload page to show new summary and clear caches
