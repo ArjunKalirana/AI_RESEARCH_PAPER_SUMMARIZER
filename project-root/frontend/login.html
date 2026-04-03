@@ -28,9 +28,21 @@
         input:-webkit-autofill:hover, 
         input:-webkit-autofill:focus, 
         input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0 30px #08040c inset !important;
+            -webkit-box-shadow: 0 0 0 50px #08040c inset !important; /* Increased spread for safety */
             -webkit-text-fill-color: #fff !important;
             transition: background-color 5000s ease-in-out 0s;
+        }
+
+        /* Fix Background Color On Focus */
+        input:focus {
+            background-color: transparent !important;
+            outline: none;
+        }
+        
+        .input-box input:focus ~ label,
+        .input-box input:valid ~ label {
+            top: -5px;
+            color: #1e68f1; /* Added color change to label on focus for better UX */
         }
 
         .main-container {
@@ -40,7 +52,7 @@
             background: transparent;
             border: 2px solid #1e68f1;
             box-shadow: 0 0 25px rgba(30, 104, 241, 0.4);
-            overflow: hidden;
+            overflow-y: auto; /* Allow internal scrolling if content overflows on mobile */
             border-radius: 20px;
         }
 
@@ -295,6 +307,62 @@
         .info-text p {
             font-size: 16px;
         }
+
+        /* ── RESPONSIVENESS ──────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .main-container {
+                width: 95%;
+                min-height: 500px;
+                height: auto;
+                padding: 40px 20px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .info-text {
+                display: none !important; /* Hide info text on mobile to save space */
+            }
+
+            .form-box {
+                position: relative;
+                width: 100% !important;
+                left: 0 !important;
+                right: 0 !important;
+                padding: 0 10px !important;
+                height: auto;
+                margin-bottom: 20px;
+            }
+
+            .form-box.register {
+                display: none; /* Toggle handled by JS class 'active' below */
+            }
+
+            .main-container.active .form-box.login {
+                display: none;
+            }
+
+            .main-container.active .form-box.register {
+                display: flex;
+                pointer-events: auto;
+            }
+
+            .bg-animate, .bg-animate2 {
+                display: none; /* Hide complex animations on mobile for performance */
+            }
+
+            body {
+                background: linear-gradient(135deg, #08040c, #1e68f1); /* Simple static background for mobile */
+            }
+
+            .animation {
+                transition: none !important; /* Faster transitions for mobile */
+                transform: none !important;
+                opacity: 1 !important;
+                filter: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -316,7 +384,7 @@
                     <label>Password</label>
                     <i class='bx bxs-lock-alt'></i>
                 </div>
-                <button type="submit" id="login-submit" class="btn animation" style="--i:3; --j:24;">Sign In</button>
+                <button type="submit" id="login-submit" class="btn animation" style="--i:3; --j:24;">Login</button>
                 <div id="login-error" class="error-msg animation" style="--i:4; --j:25;"></div>
                 <div class="reglog-text animation" style="--i:5; --j:26;">
                     <p>Don't have an account? <a href="#" class="signup-link">Sign Up</a></p>
@@ -401,7 +469,7 @@
                 window.location.href = '/upload.html';
             } catch (err) {
                 button.disabled = false;
-                button.textContent = button.id === 'login-submit' ? 'Sign In' : 'Create Account';
+                button.textContent = button.id === 'login-submit' ? 'Login' : 'Create Account';
                 errorElem.textContent = err.message;
             }
         }
