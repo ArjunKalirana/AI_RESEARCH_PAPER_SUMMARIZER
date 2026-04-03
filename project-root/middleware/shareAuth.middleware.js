@@ -1,11 +1,17 @@
 const { verifyToken, getShareToken } = require('../services/authService');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 const guestLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 50, 
-    message: { error: 'Rate limit exceeded for this shared link. Please try again later.' },
-    keyGenerator: (req) => req.ip
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: { error: 'Rate limit exceeded for this shared link. Please try again later.' },
+  keyGenerator: (req) => {
+    const shareToken = req.query.shareToken || req.headers['x-share-token'];
+    // Combine share token + IP for scoped rate limiting
+    return shareToken
+      ? `${shareToken}::${ipKeyGenerator(req)}`
+      : ipKeyGenerator(req);
+  }
 });
 
 async function shareAuth(req, res, next) {

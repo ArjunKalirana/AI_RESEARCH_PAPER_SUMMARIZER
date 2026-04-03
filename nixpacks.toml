@@ -1,24 +1,18 @@
-# nixpacks.toml for ResearchAI Monorepo
+# nixpacks.toml for ResearchAI — Railway deployment
 
 [phases.setup]
-nixPkgs = ["python3", "nodejs", "gcc", "libpq"]
+nixPkgs = ["python3", "nodejs_20", "gcc", "libpq"]
 
 [phases.install]
 cmds = [
-  "npm install --prefix project-root",
+  "cd project-root && npm install --include=dev",
   "pip install -r faiss-service/requirements.txt"
 ]
 
 [phases.build]
 cmds = [
-  "npm run build --prefix project-root"
+  "cd project-root && npm run build"
 ]
 
-# This configuration supports Railway's "Root Directory" setting.
-# If you deploy with Root Directory = "project-root", it will use this if present.
-# But it's better to use variables for the start command.
-
 [start]
-# Default start command assumes Backend service.
-# For FAISS service, override this in Railway with: python faiss-service/main.py
 cmd = "node project-root/app.js"

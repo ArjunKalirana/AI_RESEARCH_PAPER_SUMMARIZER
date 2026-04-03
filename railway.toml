@@ -4,8 +4,4 @@ healthcheckTimeout = 30
 
 [[volumes]]
 mountPath = "/app/project-root/data"
-name = "ai_research_paper_summarizer-volume"
-
-[deploy.environmentVariables]
-NODE_ENV = "production"
-PORT = "3000"
+name = "researchai-data"

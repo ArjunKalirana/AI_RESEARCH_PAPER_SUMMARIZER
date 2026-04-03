@@ -5,11 +5,12 @@ const requireAuth = require('../middleware/auth.middleware');
 const rateLimit = require('express-rate-limit');
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
+  windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { error: 'Too many attempts. Please try again in 15 minutes.' },
+  message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
+  // No custom keyGenerator needed — default is IPv6-safe in express-rate-limit v7+
 });
 
 router.post('/register', authLimiter, async (req, res) => {
