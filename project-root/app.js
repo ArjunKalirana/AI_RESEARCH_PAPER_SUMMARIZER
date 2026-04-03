@@ -29,11 +29,11 @@ app.set('trust proxy', 1);
 const server = http.createServer(app);
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:3000'];
+  : null; // null = allow all origins (Railway public URL varies per deploy)
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' ? allowedOrigins : '*',
+    origin: allowedOrigins || '*',
     methods: ['GET', 'POST'],
     credentials: true,
   }
@@ -53,7 +53,7 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? allowedOrigins : '*',
+  origin: allowedOrigins || '*',
   credentials: true,
 }));
 app.use(express.json());
@@ -87,11 +87,44 @@ if (!frontendPath) {
   console.error("❌ Frontend folder NOT found in any expected location");
 }
 
+// Auto-build CSS if dist/output.css is missing (safety net for failed build phases)
+if (frontendPath) {
+  const cssOutputPath = path.join(frontendPath, 'dist', 'output.css');
+  if (!fs.existsSync(cssOutputPath)) {
+    console.warn('⚠️  dist/output.css not found — attempting emergency CSS build...');
+    try {
+      const { execSync } = require('child_process');
+      fs.mkdirSync(path.join(frontendPath, 'dist'), { recursive: true });
+      execSync('npm run build', {
+        cwd: path.resolve(__dirname),
+        stdio: 'pipe',
+        timeout: 60000
+      });
+      console.log('✅ Emergency CSS build completed.');
+    } catch (buildErr) {
+      console.error('❌ Emergency CSS build failed:', buildErr.message);
+      console.error('Pages will be unstyled. Check that tailwindcss is installed.');
+    }
+  } else {
+    console.log('✅ dist/output.css found — CSS ready.');
+  }
+}
+
 // Serve compiled CSS first to prevent shadowing
 if (frontendPath) {
   app.use('/dist', express.static(path.join(frontendPath, 'dist')));
   app.use(express.static(frontendPath));
 }
+
+// Return proper 404 for missing static assets — never return HTML for .css/.js files
+app.use((req, res, next) => {
+  const ext = path.extname(req.path);
+  const staticExts = ['.css', '.js', '.png', '.jpg', '.ico', '.svg', '.woff', '.woff2', '.ttf'];
+  if (staticExts.includes(ext)) {
+    return res.status(404).type(ext.slice(1)).send('');
+  }
+  next();
+});
 
 // Explicit Root Handler
 app.get('/', (req, res) => {
