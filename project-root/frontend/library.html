@@ -409,10 +409,12 @@
                 let url = '/api/library/search';
                 if (query) url += `?q=${encodeURIComponent(query)}`;
                 const res = await fetch(url);
+                if (!res.ok) throw new Error('Failed to fetch library');
                 allPapers = await res.json();
                 renderLibrary();
             } catch (e) {
                 console.error("Failed to fetch library", e);
+                libraryGrid.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">error</span><p>Error loading library. Please try refreshing.</p></div>`;
             }
         }
 
@@ -496,25 +498,25 @@
 
                         <div class="card-actions">
                             <div class="flex gap-2">
-                                <a href="chat.html?paperId=${paperId}" class="btn-chat">
+                                <a href="chat.html?paperId=${paper.paperId}" class="btn-chat">
                                     <span class="material-symbols-outlined" style="font-size:16px;">forum</span> Chat
                                 </a>
-                                <a href="summary.html?paperId=${paperId}" class="btn-chat" style="background: var(--primary); color: white; border: none;">
+                                <a href="summary.html?paperId=${paper.paperId}" class="btn-chat" style="background: var(--primary); color: white; border: none;">
                                     <span class="material-symbols-outlined" style="font-size:16px;">description</span> Summary
                                 </a>
                             </div>
                             <div class="action-group">
-                                <select class="collection-select" onchange="updateCollection('${paperId}', this.value)">
+                                <select class="collection-select" onchange="updateCollection('${paper.paperId}', this.value)">
                                     <option value="">Move...</option>
                                     ${collectionOptions}
                                 </select>
-                                <button class="btn-small" onclick="sharePaper('${paperId}')" title="Share Paper">
+                                <button class="btn-small" onclick="sharePaper('${paper.paperId}')" title="Share Paper">
                                     <span class="material-symbols-outlined" style="font-size:18px;">share</span>
                                 </button>
-                                <button class="btn-small" onclick="toggleNotes('${paperId}')" title="Notes">
+                                <button class="btn-small" onclick="toggleNotes('${paper.paperId}')" title="Notes">
                                     <span class="material-symbols-outlined" style="font-size:18px;">edit_note</span>
                                 </button>
-                                <button class="btn-small" onclick="deletePaper('${paperId}')" title="Delete">
+                                <button class="btn-small" onclick="deletePaper('${paper.paperId}')" title="Delete">
                                     <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
                                 </button>
                             </div>

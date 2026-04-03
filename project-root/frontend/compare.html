@@ -271,13 +271,13 @@
                 card.dataset.id = paper.paperId;
                 
                 const statusBadge = paper.status === 'ready' 
-                    ? `<span class="status-badge status-ready"><span class="material-icons text-[12px]">check_circle</span> Ready</span>`
-                    : `<span class="status-badge status-needs-reindex"><span class="material-icons text-[12px]">warning</span> Re-upload needed</span>`;
+                    ? `<span class="status-badge status-ready"><span class="material-symbols-outlined text-[12px]">check_circle</span> Ready</span>`
+                    : `<span class="status-badge status-needs-reindex"><span class="material-symbols-outlined text-[12px]">warning</span> Re-upload needed</span>`;
 
                 card.innerHTML = `
                     <div class="flex items-start gap-3">
                         <div class="mt-1 w-5 h-5 rounded border border-slate-200 dark:border-slate-700 flex items-center justify-center text-white group-hover:border-primary transition-colors checkbox-indicator">
-                            <span class="material-icons text-xs hidden">check</span>
+                            <span class="material-symbols-outlined text-xs hidden">check</span>
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center justify-between mb-2">
@@ -285,7 +285,7 @@
                                 <div class="flex items-center gap-2">
                                     <div class="text-[10px] font-bold text-slate-400">${paper.year || 'N/A'}</div>
                                     <button onclick="event.stopPropagation(); deletePaper('${paper.paperId}')" class="text-slate-300 hover:text-red-500 transition-colors p-1">
-                                        <span class="material-icons text-sm">delete</span>
+                                        <span class="material-symbols-outlined text-sm">delete</span>
                                     </button>
                                 </div>
                             </div>
@@ -347,7 +347,7 @@
 
     function toggleSelection(id, card) {
         const checkbox = card.querySelector('.checkbox-indicator');
-        const checkIcon = checkbox.querySelector('.material-icons');
+        const checkIcon = checkbox.querySelector('.material-symbols-outlined');
 
         if (selectedPapers.includes(id)) {
             selectedPapers = selectedPapers.filter(p => p !== id);
@@ -393,7 +393,7 @@
         answerArea.classList.remove('hidden');
         streamingAnswer.innerHTML = `
             <div class="flex gap-2 items-center text-slate-400 animate-pulse-soft">
-                <span class="material-icons spin">sync</span>
+                <span class="material-symbols-outlined spin">sync</span>
                 Synthesizing multi-paper insights...
             </div>
         `;
@@ -424,7 +424,7 @@
               box-shadow: 0 2px 4px rgba(0,0,0,0.02);
             `;
             warningBanner.innerHTML = `
-              <span class="material-icons" style="font-size:18px;color:#d97706">warning</span>
+              <span class="material-symbols-outlined" style="font-size:18px;color:#d97706">warning</span>
               <div style="flex:1;">${data.warning}</div>
             `;
             streamingAnswer.parentElement?.insertBefore(warningBanner, streamingAnswer);
@@ -477,10 +477,10 @@
 
             if (!response.ok) {
                 const errorJson = await response.json().catch(() => ({}));
-                streamingAnswer.innerHTML = `<div class="text-red-500 font-bold flex items-center gap-2"><span class="material-icons">error</span> Error: ${errorJson.error || response.status}</div>`;
+                streamingAnswer.innerHTML = `<div class="text-red-500 font-bold flex items-center gap-2"><span class="material-symbols-outlined">error</span> Error: ${errorJson.error || response.status}</div>`;
             }
         } catch (e) {
-            streamingAnswer.innerHTML = `<div class="text-red-500 font-bold flex items-center gap-2"><span class="material-icons">wifi_off</span> Connection failed.</div>`;
+            streamingAnswer.innerHTML = `<div class="text-red-500 font-bold flex items-center gap-2"><span class="material-symbols-outlined">wifi_off</span> Connection failed.</div>`;
         }
     }
 

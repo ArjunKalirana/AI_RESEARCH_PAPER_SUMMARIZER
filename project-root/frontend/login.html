@@ -1,134 +1,421 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Login - ResearchAI</title>
-  <link href="dist/output.css" rel="stylesheet"/>
-  <style>
-    body { background-color: #121212; color: #E0E0E0; font-family: 'Inter', sans-serif; }
-    .glass-panel { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-  </style>
-</head>
-<body class="min-h-screen flex items-center justify-center p-4">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResearchAI - Login & Registration</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
 
-  <div class="glass-panel p-8 rounded-xl w-full max-w-md shadow-2xl relative">
-    <!-- Tab Switcher -->
-    <div class="flex border-b border-gray-700 mb-6">
-      <button id="tab-login" class="flex-1 py-3 text-center text-blue-400 border-b-2 border-blue-400 font-semibold transition-colors" onclick="switchTab('login')">Sign in</button>
-      <button id="tab-register" class="flex-1 py-3 text-center text-gray-400 border-b-2 border-transparent font-semibold transition-colors" onclick="switchTab('register')">Create account</button>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #08040c;
+        }
+
+        .main-container {
+            position: relative;
+            width: 850px;
+            height: 550px;
+            background: transparent;
+            border: 2px solid #1e68f1;
+            box-shadow: 0 0 25px rgba(30, 104, 241, 0.4);
+            overflow: hidden;
+            border-radius: 20px;
+        }
+
+        /* Background Animation */
+        .bg-animate {
+            position: absolute;
+            top: -4px;
+            right: 0;
+            width: 850px;
+            height: 700px;
+            background: linear-gradient(45deg, #08040c, #1e68f1);
+            transform: rotate(10deg) skewY(40deg);
+            transform-origin: bottom right;
+            transition: 1.5s ease;
+        }
+
+        .main-container.active .bg-animate {
+            transform: rotate(0) skewY(0);
+            transition-delay: 0.5s;
+        }
+
+        .bg-animate2 {
+            position: absolute;
+            top: 100%;
+            left: 250px;
+            width: 850px;
+            height: 700px;
+            background: #08040c;
+            border-top: 3px solid #1e68f1;
+            transform: rotate(0deg) skewY(0deg);
+            transform-origin: bottom left;
+            transition: 1.5s ease;
+            z-index: 1;
+        }
+
+        .main-container.active .bg-animate2 {
+            transform: rotate(-11deg) skewY(-40deg);
+            transition-delay: 1.2s;
+        }
+
+        /* Form Boxes */
+        .form-box {
+            position: absolute;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        .form-box.login {
+            left: 0;
+            padding: 0 60px 0 40px;
+        }
+
+        .main-container.active .form-box.login {
+            pointer-events: none;
+        }
+
+        .form-box.register {
+            right: 0;
+            padding: 0 40px 0 60px;
+            pointer-events: none;
+        }
+
+        .main-container.active .form-box.register {
+            pointer-events: auto;
+        }
+
+        /* Shared Styles */
+        .animation {
+            transform: translateX(0);
+            opacity: 1;
+            filter: blur(0);
+            transition: .7s ease;
+            transition-delay: calc(.1s * var(--j));
+        }
+
+        .main-container.active .form-box.login .animation {
+            transform: translateX(-120%);
+            opacity: 0;
+            filter: blur(10px);
+            transition-delay: calc(.1s * var(--i));
+        }
+
+        .main-container .form-box.register .animation {
+            transform: translateX(120%);
+            opacity: 0;
+            filter: blur(10px);
+            transition-delay: calc(.1s * var(--j));
+        }
+
+        .main-container.active .form-box.register .animation {
+            transform: translateX(0);
+            opacity: 1;
+            filter: blur(0);
+            transition-delay: calc(.1s * var(--i));
+        }
+
+        h2 {
+            font-size: 32px;
+            color: #fff;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* Input Styling */
+        .input-box {
+            position: relative;
+            width: 100%;
+            height: 50px;
+            border-bottom: 2px solid #fff;
+            margin: 30px 0;
+        }
+
+        .input-box input {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            color: #fff;
+            font-weight: 500;
+            padding-right: 28px;
+        }
+
+        .input-box label {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            color: #fff;
+            font-size: 16px;
+            pointer-events: none;
+            transition: .5s;
+        }
+
+        .input-box input:focus~label,
+        .input-box input:valid~label {
+            top: -5px;
+        }
+
+        .input-box i {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+            font-size: 18px;
+            color: #fff;
+        }
+
+        .btn {
+            width: 100%;
+            height: 45px;
+            background: #1e68f1;
+            border: none;
+            outline: none;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 16px;
+            color: #fff;
+            font-weight: 600;
+            box-shadow: 0 0 10px rgba(0, 0, 0, .1);
+            transition: .3s;
+        }
+        .btn:hover {
+            box-shadow: 0 0 20px rgba(30, 104, 241, 0.6);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .reglog-text {
+            font-size: 14.5px;
+            color: #fff;
+            text-align: center;
+            margin: 20px 0 10px;
+        }
+
+        .reglog-text p a {
+            color: #1e68f1;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .error-msg {
+            color: #ff4b2b;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 10px;
+            height: 18px;
+        }
+
+        /* Info Text Side */
+        .info-text {
+            position: absolute;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            color: #fff;
+            z-index: 3;
+        }
+
+        .info-text.login {
+            right: 0;
+            text-align: right;
+            padding: 0 40px 0 60px;
+        }
+
+        .main-container.active .info-text.login .animation {
+            transform: translateX(120%);
+            opacity: 0;
+            filter: blur(10px);
+            transition-delay: calc(.1s * var(--i));
+        }
+
+        .info-text.register {
+            left: 0;
+            text-align: left;
+            padding: 0 60px 0 40px;
+            pointer-events: none;
+            transform: translateX(-120%);
+            opacity: 0;
+            filter: blur(10px);
+            transition: .7s ease;
+        }
+
+        .main-container.active .info-text.register {
+            transform: translateX(0);
+            opacity: 1;
+            filter: blur(0);
+            transition-delay: 0.7s;
+        }
+
+        .info-text h2 {
+            font-size: 36px;
+            text-transform: uppercase;
+            line-height: 1.3;
+        }
+
+        .info-text p {
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <span class="bg-animate"></span>
+        <span class="bg-animate2"></span>
+
+        <!-- Login Form -->
+        <div class="form-box login">
+            <h2 class="animation" style="--i:0; --j:21;">Login</h2>
+            <form id="login-form">
+                <div class="input-box animation" style="--i:1; --j:22;">
+                    <input type="email" id="login-email" required>
+                    <label>Email</label>
+                    <i class='bx bxs-envelope'></i>
+                </div>
+                <div class="input-box animation" style="--i:2; --j:23;">
+                    <input type="password" id="login-password" required>
+                    <label>Password</label>
+                    <i class='bx bxs-lock-alt'></i>
+                </div>
+                <button type="submit" id="login-submit" class="btn animation" style="--i:3; --j:24;">Sign In</button>
+                <div id="login-error" class="error-msg animation" style="--i:4; --j:25;"></div>
+                <div class="reglog-text animation" style="--i:5; --j:26;">
+                    <p>Don't have an account? <a href="#" class="signup-link">Sign Up</a></p>
+                </div>
+            </form>
+        </div>
+
+        <div class="info-text login">
+            <h2 class="animation" style="--i:0; --j:20;">WELCOME BACK!</h2>
+            <p class="animation" style="--i:1; --j:21;">Access your research workspace and continue your analysis.</p>
+        </div>
+
+        <!-- Register Form -->
+        <div class="form-box register">
+            <h2 class="animation" style="--i:17; --j:0;">Sign Up</h2>
+            <form id="register-form">
+                <div class="input-box animation" style="--i:18; --j:1;">
+                    <input type="email" id="register-email" required>
+                    <label>Email</label>
+                    <i class='bx bxs-envelope'></i>
+                </div>
+                <div class="input-box animation" style="--i:19; --j:2;">
+                    <input type="password" id="register-password" required>
+                    <label>Password</label>
+                    <i class='bx bxs-lock-alt'></i>
+                </div>
+                <div class="input-box animation" style="--i:20; --j:3;">
+                    <input type="password" id="register-confirm" required>
+                    <label>Confirm Password</label>
+                    <i class='bx bxs-check-shield'></i>
+                </div>
+                <button type="submit" id="register-submit" class="btn animation" style="--i:21; --j:4;">Create Account</button>
+                <div id="register-error" class="error-msg animation" style="--i:22; --j:5;"></div>
+                <div class="reglog-text animation" style="--i:23; --j:6;">
+                    <p>Already have an account? <a href="#" class="login-link">Login</a></p>
+                </div>
+            </form>
+        </div>
+
+        <div class="info-text register">
+            <h2 class="animation" style="--i:17; --j:0;">JOIN US!</h2>
+            <p class="animation" style="--i:18; --j:1;">Start your journey with ResearchAI today by creating an account.</p>
+        </div>
     </div>
 
-    <!-- Login Form -->
-    <form id="login-form">
-      <div class="mb-4">
-        <label class="block text-sm text-gray-400 mb-1">Email</label>
-        <input type="email" id="login-email" required class="w-full p-3 rounded-lg bg-gray-800 border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500">
-      </div>
-      <div class="mb-6">
-        <label class="block text-sm text-gray-400 mb-1">Password</label>
-        <input type="password" id="login-password" required class="w-full p-3 rounded-lg bg-gray-800 border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500">
-      </div>
-      <button type="submit" id="login-submit" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors flex justify-center items-center">
-        <span>Sign In</span>
-      </button>
-      <p id="login-error" class="text-red-400 text-sm mt-3 text-center hidden"></p>
-    </form>
+    <script>
+        const mainContainer = document.querySelector('.main-container');
+        const signupLink = document.querySelector('.signup-link');
+        const loginLink = document.querySelector('.login-link');
 
-    <!-- Register Form -->
-    <form id="register-form" class="hidden">
-      <div class="mb-4">
-        <label class="block text-sm text-gray-400 mb-1">Email</label>
-        <input type="email" id="register-email" required class="w-full p-3 rounded-lg bg-gray-800 border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500">
-      </div>
-      <div class="mb-4">
-        <label class="block text-sm text-gray-400 mb-1">Password</label>
-        <input type="password" id="register-password" required class="w-full p-3 rounded-lg bg-gray-800 border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500">
-        <p class="text-xs text-gray-500 mt-1">Min 8 chars, 1 uppercase, 1 number.</p>
-      </div>
-      <div class="mb-6">
-        <label class="block text-sm text-gray-400 mb-1">Confirm Password</label>
-        <input type="password" id="register-confirm" required class="w-full p-3 rounded-lg bg-gray-800 border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500">
-      </div>
-      <button type="submit" id="register-submit" class="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg transition-colors flex justify-center items-center">
-        <span>Create Account</span>
-      </button>
-      <p id="register-error" class="text-red-400 text-sm mt-3 text-center hidden"></p>
-    </form>
-  </div>
+        signupLink.onclick = (e) => {
+            e.preventDefault();
+            mainContainer.classList.add('active');
+        }
 
-  <script>
-    // If they already have a token, just redirect
-    if (localStorage.getItem('authToken')) {
-      window.location.href = '/upload.html';
-    }
+        loginLink.onclick = (e) => {
+            e.preventDefault();
+            mainContainer.classList.remove('active');
+        }
 
-    function switchTab(tab) {
-      const isLogin = tab === 'login';
-      document.getElementById('login-form').classList.toggle('hidden', !isLogin);
-      document.getElementById('register-form').classList.toggle('hidden', isLogin);
-      
-      document.getElementById('tab-login').className = isLogin 
-        ? "flex-1 py-3 text-center text-blue-400 border-b-2 border-blue-400 font-semibold transition-colors"
-        : "flex-1 py-3 text-center text-gray-400 border-b-2 border-transparent font-semibold transition-colors";
-        
-      document.getElementById('tab-register').className = !isLogin 
-        ? "flex-1 py-3 text-center text-blue-400 border-b-2 border-blue-400 font-semibold transition-colors"
-        : "flex-1 py-3 text-center text-gray-400 border-b-2 border-transparent font-semibold transition-colors";
-        
-      document.getElementById('login-error').classList.add('hidden');
-      document.getElementById('register-error').classList.add('hidden');
-    }
+        // Logic Integration
+        if (localStorage.getItem('authToken')) {
+            window.location.href = '/upload.html';
+        }
 
-    async function handleAuth(url, body, button, errorElem) {
-      button.disabled = true;
-      button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Please wait...';
-      errorElem.classList.add('hidden');
+        async function handleAuth(url, body, button, errorElem) {
+            button.disabled = true;
+            button.textContent = 'Please wait...';
+            errorElem.textContent = '';
 
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                
+                if (!res.ok) throw new Error(data.error || 'Authentication failed');
+
+                localStorage.setItem('authToken', data.token);
+                window.location.href = '/upload.html';
+            } catch (err) {
+                button.disabled = false;
+                button.textContent = button.id === 'login-submit' ? 'Sign In' : 'Create Account';
+                errorElem.textContent = err.message;
+            }
+        }
+
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleAuth('/api/auth/login', {
+                email: document.getElementById('login-email').value,
+                password: document.getElementById('login-password').value
+            }, document.getElementById('login-submit'), document.getElementById('login-error'));
         });
-        const data = await res.json();
-        
-        if (!res.ok) throw new Error(data.error || 'Authentication failed');
 
-        localStorage.setItem('authToken', data.token);
-        window.location.href = '/upload.html';
-      } catch (err) {
-        button.disabled = false;
-        button.innerHTML = button.id === 'login-submit' ? 'Sign In' : 'Create Account';
-        errorElem.textContent = err.message;
-        errorElem.classList.remove('hidden');
-      }
-    }
-
-    document.getElementById('login-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      handleAuth('/api/auth/login', {
-        email: document.getElementById('login-email').value,
-        password: document.getElementById('login-password').value
-      }, document.getElementById('login-submit'), document.getElementById('login-error'));
-    });
-
-    document.getElementById('register-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const pw = document.getElementById('register-password').value;
-      const pwConf = document.getElementById('register-confirm').value;
-      const err = document.getElementById('register-error');
-      
-      if (pw !== pwConf) {
-        err.textContent = "Passwords do not match.";
-        err.classList.remove('hidden');
-        return;
-      }
-      
-      handleAuth('/api/auth/register', {
-        email: document.getElementById('register-email').value,
-        password: pw
-      }, document.getElementById('register-submit'), err);
-    });
-  </script>
+        document.getElementById('register-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pw = document.getElementById('register-password').value;
+            const pwConf = document.getElementById('register-confirm').value;
+            const err = document.getElementById('register-error');
+            
+            if (pw !== pwConf) {
+                err.textContent = "Passwords do not match.";
+                return;
+            }
+            
+            handleAuth('/api/auth/register', {
+                email: document.getElementById('register-email').value,
+                password: pw
+            }, document.getElementById('register-submit'), err);
+        });
+    </script>
 </body>
 </html>
