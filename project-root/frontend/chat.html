@@ -548,12 +548,10 @@
                     </div>
                 `;
                 body.insertAdjacentHTML('beforeend', sourceHtml);
-            }
-            
-            }
         }
+    }
 
-        function renderSuggestions(id, suggestions) {
+    function renderSuggestions(id, suggestions) {
             const el = document.getElementById(id);
             if (!el) return;
             
@@ -700,10 +698,11 @@
             if (e.key === 'Escape' && input && document.activeElement === input) {
                 input.value = '';
             }
-            } catch (err) {
-                console.error('[Chat] Global Initialization Error:', err);
-                showToast('Failed to initialize chat interface. Please refresh.', 'error');
-            }
         });
+    } catch (err) {
+        console.error('[Chat] Global Initialization Error:', err);
+        showToast('Failed to initialize chat interface. Please refresh.', 'error');
+    }
+});
 </script>
 </body></html>
