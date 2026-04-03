@@ -58,16 +58,22 @@
         transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         flex-direction: column;
+        border-left: 1px solid rgba(245, 158, 11, 0.1);
     }
     .critique-panel.open {
         transform: translateX(0);
     }
     .critique-header {
         padding: 32px;
-        border-bottom: 1px solid #f1f5f9;
+        background: linear-gradient(to right, #fffbeb, #fff); /* Subtle amber/yellow theme */
+        border-bottom: 1px solid #fef3c7;
         display: flex;
         justify-content: space-between;
         align-items: center;
+    }
+    .dark .critique-header {
+        background: linear-gradient(to right, #451a03, #1e1b1b);
+        border-bottom: 1px solid #78350f;
     }
     .critique-body {
         flex: 1;
@@ -124,6 +130,55 @@
         margin-top: 32px;
     }
 
+    /* Citation Modal Tabs */
+    .tab-btn {
+        flex: 1;
+        padding: 16px 24px;
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #94a3b8;
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        background: transparent;
+    }
+    .tab-btn:hover {
+        color: #1e293b;
+        background: #f8fafc;
+    }
+    .tab-btn.active {
+        color: #1e68f1;
+        border-bottom-color: #1e68f1;
+        background: rgba(30, 104, 241, 0.03);
+    }
+    .dark .tab-btn.active {
+        background: rgba(30, 104, 241, 0.1);
+    }
+
+    /* Enhanced Prose Mirror Styles */
+    .prose-custom {
+        line-height: 1.8;
+        font-size: 1.05rem;
+    }
+    .prose-custom h1, .prose-custom h2, .prose-custom h3 {
+        font-weight: 900 !important;
+        letter-spacing: -0.02em !important;
+        margin-top: 2.5rem !important;
+        margin-bottom: 1.25rem !important;
+        color: #0f172a !important;
+    }
+    .prose-custom strong {
+        font-weight: 800 !important;
+        color: #1e68f1 !important;
+    }
+    .dark .prose-custom h1, .dark .prose-custom h2, .dark .prose-custom h3 {
+        color: #f8fafc !important;
+    }
+    .dark .prose-custom strong {
+        color: #93c5fd !important;
+    }
+    
     /* Toast */
     #toast {
         position: fixed;
@@ -243,7 +298,7 @@
 
 <!-- Mobile Navigation Drawer -->
 <div id="mobileMenuOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300" onclick="toggleMobileMenu()"></div>
-<div id="mobileMenuDrawer" class="fixed top-0 right-0 h-full w-72 bg-white dark:bg-slate-900 z-[70] translate-x-full transition-transform duration-300 shadow-2xl p-8 flex flex-col">
+<div id="mobileMenuDrawer" class="hidden fixed top-0 right-0 h-full w-72 bg-white dark:bg-slate-900 z-[70] translate-x-full transition-transform duration-300 shadow-2xl p-8 flex flex-col">
   <div class="flex items-center justify-between mb-10">
     <span class="font-black text-primary tracking-tight italic">ResearchAI</span>
     <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
@@ -322,7 +377,7 @@
 <div class="absolute top-0 right-0 p-4">
 <span class="material-symbols-outlined text-primary/10 text-6xl">format_quote</span>
 </div>
-<div id="paperSummary" class="prose prose-slate dark:prose-invert max-w-none relative z-10">
+<div id="paperSummary" class="prose prose-slate dark:prose-invert prose-custom max-w-none relative z-10">
 <p class="italic text-slate-400">Deep analyzing paper structure...</p>
 </div>
 </div>
@@ -399,7 +454,7 @@ Section-by-Section Analysis
         </h3>
         <button onclick="closeCritiquePanel()" class="text-amber-800 dark:text-amber-200 hover:text-black dark:hover:text-white p-1 rounded transition-colors"><span class="material-symbols-outlined">close</span></button>
     </div>
-    <div id="critiqueBody" class="critique-body prose prose-slate dark:prose-invert prose-amber max-w-none custom-scrollbar">
+    <div id="critiqueBody" class="critique-body prose prose-slate dark:prose-invert prose-amber prose-custom max-w-none custom-scrollbar">
         <div id="critiqueSpinner" class="flex flex-col items-center justify-center h-full text-slate-400/60 font-medium">
             <span class="loader-pulse mr-2 !bg-amber-500 mb-4 block"></span>
             Analyzing statistical validity and biases...
@@ -429,12 +484,18 @@ Section-by-Section Analysis
       
       if (isHidden) {
         overlay.classList.remove('hidden');
-        drawer.classList.remove('translate-x-full');
-        setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+        drawer.classList.remove('hidden');
+        setTimeout(() => {
+          overlay.classList.remove('opacity-0');
+          drawer.classList.remove('translate-x-full');
+        }, 10);
       } else {
         overlay.classList.add('opacity-0');
         drawer.classList.add('translate-x-full');
-        setTimeout(() => overlay.classList.add('hidden'), 300);
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+          drawer.classList.add('hidden');
+        }, 300);
       }
     }
 

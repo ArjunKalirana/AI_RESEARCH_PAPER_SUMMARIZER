@@ -43,7 +43,7 @@
 
 <!-- Mobile Navigation Drawer -->
 <div id="mobileMenuOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300" onclick="toggleMobileMenu()"></div>
-<div id="mobileMenuDrawer" class="fixed top-0 right-0 h-full w-72 bg-white dark:bg-slate-900 z-[70] translate-x-full transition-transform duration-300 shadow-2xl p-8 flex flex-col">
+<div id="mobileMenuDrawer" class="hidden fixed top-0 right-0 h-full w-72 bg-white dark:bg-slate-900 z-[70] translate-x-full transition-transform duration-300 shadow-2xl p-8 flex flex-col">
   <div class="flex items-center justify-between mb-10">
     <span class="font-black text-primary tracking-tight italic">ResearchAI</span>
     <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
@@ -187,12 +187,18 @@
       
       if (isHidden) {
         overlay.classList.remove('hidden');
-        drawer.classList.remove('translate-x-full');
-        setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+        drawer.classList.remove('hidden');
+        setTimeout(() => {
+          overlay.classList.remove('opacity-0');
+          drawer.classList.remove('translate-x-full');
+        }, 10);
       } else {
         overlay.classList.add('opacity-0');
         drawer.classList.add('translate-x-full');
-        setTimeout(() => overlay.classList.add('hidden'), 300);
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+          drawer.classList.add('hidden');
+        }, 300);
       }
     }
 
