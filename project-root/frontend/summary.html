@@ -18,7 +18,7 @@
 <div id="toast">COPIED TO CLIPBOARD!</div>
 
 <!-- Citation Modal -->
-<div id="citationModal" class="modal-overlay">
+<div id="citationModal" class="modal-overlay" style="display:none;">
     <div class="modal-content-box animate-in">
         <div class="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
             <h3 class="font-black text-lg tracking-tight">Export Citation</h3>
@@ -43,53 +43,72 @@
     </div>
 </div>
 
-<header class="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl dark:border-slate-800">
-<div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center text-sm">
-<div class="flex items-center gap-8">
-<div class="flex items-center gap-2.5 group cursor-pointer" onclick="window.location.href='/'">
-<div class="bg-primary p-1.5 rounded-lg text-white shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-<span class="material-symbols-outlined text-lg block">auto_stories</span>
-</div>
-<span class="font-bold text-base tracking-tight">ResearchAI</span>
-</div>
-<nav class="hidden md:flex items-center gap-6">
-<a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="upload.html">Upload</a>
-<a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="library.html">Library</a>
-<a class="font-bold text-primary" href="#">Summary</a>
-<a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="chat.html">Ask AI</a>
-<a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="compare.html">Compare</a>
-</nav>
-</div>
-<div class="flex items-center gap-4">
-<div class="relative group">
-<button class="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-full font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-sm text-xs">
-<span class="material-symbols-outlined text-sm">ios_share</span>
-<span>Export</span>
-</button>
-<div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-    <button id="downloadPdfBtn" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
-        <span class="material-symbols-outlined text-base text-red-500">picture_as_pdf</span> Download PDF
-    </button>
-    <button onclick="copyApiCitation('BibTeX')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
-        <span class="material-symbols-outlined text-base">format_quote</span> Copy BibTeX
-    </button>
-    <button onclick="copyApiCitation('APA')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
-        <span class="material-symbols-outlined text-base">format_quote</span> Copy APA
-    </button>
-    <button onclick="copyApiCitation('MLA')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
-        <span class="material-symbols-outlined text-base">format_quote</span> Copy MLA
-    </button>
-    <button onclick="copyApiCitation('IEEE')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
-        <span class="material-symbols-outlined text-base">format_quote</span> Copy IEEE
-    </button>
-</div>
-</div>
-<div class="h-8 w-8 rounded-full border border-slate-200 dark:border-slate-800 overflow-hidden cursor-pointer">
-<img alt="User" class="w-full h-full object-cover" src="https://ui-avatars.com/api/?name=Research+User&background=1e68f1&color=fff"/>
-</div>
-</div>
-</div>
+<header class="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl dark:border-slate-800">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center text-sm">
+    <div class="flex items-center gap-8">
+      <div class="flex items-center gap-2.5 group cursor-pointer" onclick="window.location.href='/'">
+        <div class="bg-primary p-1.5 rounded-lg text-white shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+          <span class="material-symbols-outlined text-lg block">auto_stories</span>
+        </div>
+        <span class="font-bold text-base tracking-tight">ResearchAI</span>
+      </div>
+      <nav class="hidden md:flex items-center gap-6">
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="upload.html">Upload</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="library.html">Library</a>
+        <a class="font-bold text-primary" href="summary.html">Summary</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="chat.html">Ask AI</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="compare.html">Compare</a>
+      </nav>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="hidden md:block relative group">
+        <button class="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-full font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-sm text-xs">
+          <span class="material-symbols-outlined text-sm">ios_share</span>
+          <span>Export</span>
+        </button>
+        <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+            <button id="downloadPdfBtn" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                <span class="material-symbols-outlined text-base text-red-500">picture_as_pdf</span> Download PDF
+            </button>
+            <button onclick="copyApiCitation('BibTeX')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+                <span class="material-symbols-outlined text-base">format_quote</span> Copy BibTeX
+            </button>
+            <button onclick="copyApiCitation('APA')" class="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+                <span class="material-symbols-outlined text-base">format_quote</span> Copy APA
+            </button>
+        </div>
+      </div>
+      <button onclick="toggleMobileMenu()" class="md:hidden p-2 text-slate-600 dark:text-slate-300">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+      <button onclick="logout()" class="hidden md:block text-xs font-bold text-red-500 hover:text-red-600 transition-colors">Sign Out</button>
+    </div>
+  </div>
 </header>
+
+<!-- Mobile Navigation Drawer -->
+<div id="mobileMenuOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300" onclick="toggleMobileMenu()"></div>
+<div id="mobileMenuDrawer" class="fixed top-0 right-0 h-full w-72 bg-white dark:bg-slate-900 z-[70] translate-x-full transition-transform duration-300 shadow-2xl p-8 flex flex-col">
+  <div class="flex items-center justify-between mb-10">
+    <span class="font-black text-primary tracking-tight italic">ResearchAI</span>
+    <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <nav class="flex flex-col gap-6 mb-auto">
+    <a href="upload.html" class="text-lg font-bold text-slate-900 dark:text-white">Upload</a>
+    <a href="library.html" class="text-lg font-bold text-slate-900 dark:text-white">Library</a>
+    <a href="summary.html" class="text-lg font-bold text-primary">Summary</a>
+    <a href="chat.html" class="text-lg font-bold text-slate-900 dark:text-white">Ask AI</a>
+    <a href="compare.html" class="text-lg font-bold text-slate-900 dark:text-white">Compare</a>
+  </nav>
+  <div class="pt-8 border-t border-slate-100 dark:border-slate-800">
+    <button onclick="logout()" class="w-full bg-red-50 dark:bg-red-900/10 text-red-600 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2">
+      <span class="material-symbols-outlined text-lg">logout</span>
+      SIGN OUT
+    </button>
+  </div>
+</div>
 
 <main class="max-w-4xl mx-auto py-12 px-6">
 <nav class="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-10">
@@ -171,13 +190,13 @@
         <span class="loader-pulse mr-2 bg-blue-500"></span> Mining key concepts...
     </div>
     
-    <div id="fcContainer" class="flashcards-container">
-        <div id="fcCard" class="flashcard" onclick="flipCard()">
-            <div id="fcFront" class="fc-side fc-front">Question loading...</div>
-            <div id="fcBack" class="fc-side fc-back shadow-blue-500/30">Answer loading...</div>
-        </div>
+<div id="fcContainer" class="flashcards-container" style="display:none;">
+    <div id="fcCard" class="flashcard" onclick="flipCard()">
+        <div id="fcFront" class="fc-side fc-front">Question loading...</div>
+        <div id="fcBack" class="fc-side fc-back shadow-blue-500/30">Answer loading...</div>
     </div>
-    <div id="fcNav" class="fc-nav">
+</div>
+<div id="fcNav" class="fc-nav" style="display:none;">
         <button onclick="prevCard()" class="text-slate-400 hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><span class="material-symbols-outlined">arrow_back</span></button>
         <div id="fcProgress" class="text-sm font-bold text-slate-500 uppercase tracking-widest">Card 1 / 8</div>
         <div class="flex gap-2">
@@ -218,7 +237,7 @@ Section-by-Section Analysis
 </div>
 
 <!-- Critique Side Panel -->
-<div id="critiquePanel" class="critique-panel">
+<div id="critiquePanel" class="critique-panel" style="display:none;">
     <div class="critique-header">
         <h3 class="text-lg font-black text-amber-600 dark:text-amber-400 flex items-center gap-2">
             <span class="material-symbols-outlined">science</span> Methodology Critique
@@ -241,18 +260,28 @@ Section-by-Section Analysis
 <script>
     const authToken = localStorage.getItem('authToken');
     if (!authToken) { window.location.href = '/login.html'; }
-    window.addEventListener('DOMContentLoaded', () => {
-      const btn = document.createElement('button');
-      btn.textContent = 'Sign Out';
-      btn.style.cssText = 'position: fixed; top: 1rem; right: 1rem; background-color: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: bold; cursor: pointer; z-index: 1000; border: none;';
-      btn.onclick = () => {
-        fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
-          localStorage.removeItem('authToken');
-          window.location.href = '/login.html';
-        });
-      };
-      document.body.appendChild(btn);
-    });
+    function logout() {
+      fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+        localStorage.removeItem('authToken');
+        window.location.href = '/login.html';
+      });
+    }
+
+    function toggleMobileMenu() {
+      const overlay = document.getElementById('mobileMenuOverlay');
+      const drawer = document.getElementById('mobileMenuDrawer');
+      const isHidden = overlay.classList.contains('hidden');
+      
+      if (isHidden) {
+        overlay.classList.remove('hidden');
+        drawer.classList.remove('translate-x-full');
+        setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+      } else {
+        overlay.classList.add('opacity-0');
+        drawer.classList.add('translate-x-full');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+      }
+    }
 
     const originalFetch = window.fetch;
     window.fetch = async function() {

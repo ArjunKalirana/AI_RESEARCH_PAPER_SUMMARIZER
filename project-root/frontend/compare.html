@@ -9,35 +9,61 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
     <script src="js/toast.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
 
-<header class="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl dark:border-slate-800">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center text-sm">
-        <div class="flex items-center gap-8">
-            <div class="flex items-center gap-2.5 group cursor-pointer" onclick="window.location.href='/'">
-                <div class="bg-primary p-1.5 rounded-lg text-white shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-                    <span class="material-icons text-lg block">auto_stories</span>
-                </div>
-                <span class="font-bold text-base tracking-tight">ResearchAI</span>
-            </div>
-            <nav class="hidden md:flex items-center gap-6">
-                <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="upload.html">Upload</a>
-                <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="library.html">Library</a>
-                <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="chat.html">Ask AI</a>
-                <a class="font-bold text-primary" href="#">Compare</a>
-            </nav>
+<header class="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl dark:border-slate-800">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center text-sm">
+    <div class="flex items-center gap-8">
+      <div class="flex items-center gap-2.5 group cursor-pointer" onclick="window.location.href='/'">
+        <div class="bg-primary p-1.5 rounded-lg text-white shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+          <span class="material-symbols-outlined text-lg block">auto_stories</span>
         </div>
-        <div class="flex items-center gap-4">
-            <div class="h-8 w-8 rounded-full border border-slate-200 dark:border-slate-800 overflow-hidden cursor-pointer">
-                <img alt="User" class="w-full h-full object-cover" src="https://ui-avatars.com/api/?name=Research+User&background=1e68f1&color=fff"/>
-            </div>
-        </div>
+        <span class="font-bold text-base tracking-tight">ResearchAI</span>
+      </div>
+      <nav class="hidden md:flex items-center gap-6">
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="upload.html">Upload</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="library.html">Library</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="summary.html">Summary</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="chat.html">Ask AI</a>
+        <a class="font-bold text-primary" href="compare.html">Compare</a>
+      </nav>
     </div>
+    <div class="flex items-center gap-4">
+      <button onclick="toggleMobileMenu()" class="md:hidden p-2 text-slate-600 dark:text-slate-300">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+      <button onclick="logout()" class="hidden md:block text-xs font-bold text-red-500 hover:text-red-600 transition-colors">Sign Out</button>
+    </div>
+  </div>
 </header>
+
+<!-- Mobile Navigation Drawer -->
+<div id="mobileMenuOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300" onclick="toggleMobileMenu()"></div>
+<div id="mobileMenuDrawer" class="fixed top-0 right-0 h-full w-72 bg-white dark:bg-slate-900 z-[70] translate-x-full transition-transform duration-300 shadow-2xl p-8 flex flex-col">
+  <div class="flex items-center justify-between mb-10">
+    <span class="font-black text-primary tracking-tight italic">ResearchAI</span>
+    <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <nav class="flex flex-col gap-6 mb-auto">
+    <a href="upload.html" class="text-lg font-bold text-slate-900 dark:text-white">Upload</a>
+    <a href="library.html" class="text-lg font-bold text-slate-900 dark:text-white">Library</a>
+    <a href="summary.html" class="text-lg font-bold text-slate-900 dark:text-white">Summary</a>
+    <a href="chat.html" class="text-lg font-bold text-slate-900 dark:text-white">Ask AI</a>
+    <a href="compare.html" class="text-lg font-bold text-primary">Compare</a>
+  </nav>
+  <div class="pt-8 border-t border-slate-100 dark:border-slate-800">
+    <button onclick="logout()" class="w-full bg-red-50 dark:bg-red-900/10 text-red-600 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2">
+      <span class="material-symbols-outlined text-lg">logout</span>
+      SIGN OUT
+    </button>
+  </div>
+</div>
 
 <main class="max-w-6xl mx-auto py-12 px-6">
     <div class="mb-12">
@@ -49,7 +75,7 @@
     <section id="selectionSection" class="mb-16">
         <div class="flex items-center justify-between mb-6">
             <h2 class="text-lg font-bold flex items-center gap-2">
-                <span class="material-icons text-primary">library_books</span>
+                <span class="material-symbols-outlined text-primary">library_books</span>
                 Your Research Library
             </h2>
             <div id="selectionCounter" class="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -67,7 +93,7 @@
         <div class="mt-8 flex justify-center">
             <button id="startCompareBtn" disabled class="bg-primary/50 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl transition-all cursor-not-allowed flex items-center gap-3">
                 <span>COMPARE SELECTED PAPERS</span>
-                <span class="material-icons">compare_arrows</span>
+                <span class="material-symbols-outlined">compare_arrows</span>
             </button>
         </div>
     </section>
@@ -78,7 +104,7 @@
         <div class="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
             <div class="flex items-center gap-4 mb-4">
                 <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    <span class="material-icons">psychology</span>
+                    <span class="material-symbols-outlined">psychology</span>
                 </div>
                 <div>
                     <h3 class="font-bold">Compare & Contrast</h3>
@@ -90,7 +116,7 @@
                 <input id="compareInput" type="text" placeholder="e.g., How do the results of these studies differ?" 
                        class="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl py-4 pl-6 pr-14 focus:ring-2 focus:ring-primary/20 text-sm font-medium"/>
                 <button id="sendBtn" class="absolute right-2 top-2 w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center hover:scale-105 transition-transform">
-                    <span class="material-icons">send</span>
+                    <span class="material-symbols-outlined">send</span>
                 </button>
             </div>
 
@@ -108,7 +134,7 @@
                 <div id="streamingAnswer" class="prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed">
                     <!-- Streamed content -->
                     <div class="flex gap-2 items-center text-slate-400 animate-pulse-soft">
-                        <span class="material-icons spin">sync</span>
+                        <span class="material-symbols-outlined spin">sync</span>
                         Analyzing cross-paper patterns...
                     </div>
                 </div>
@@ -147,18 +173,28 @@
 <script>
     const authToken = localStorage.getItem('authToken');
     if (!authToken) { window.location.href = '/login.html'; }
-    window.addEventListener('DOMContentLoaded', () => {
-      const btn = document.createElement('button');
-      btn.textContent = 'Sign Out';
-      btn.style.cssText = 'position: fixed; top: 1rem; right: 1rem; background-color: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: bold; cursor: pointer; z-index: 1000; border: none;';
-      btn.onclick = () => {
-        fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
-          localStorage.removeItem('authToken');
-          window.location.href = '/login.html';
-        });
-      };
-      document.body.appendChild(btn);
-    });
+    function logout() {
+      fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+        localStorage.removeItem('authToken');
+        window.location.href = '/login.html';
+      });
+    }
+
+    function toggleMobileMenu() {
+      const overlay = document.getElementById('mobileMenuOverlay');
+      const drawer = document.getElementById('mobileMenuDrawer');
+      const isHidden = overlay.classList.contains('hidden');
+      
+      if (isHidden) {
+        overlay.classList.remove('hidden');
+        drawer.classList.remove('translate-x-full');
+        setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+      } else {
+        overlay.classList.add('opacity-0');
+        drawer.classList.add('translate-x-full');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+      }
+    }
 
     const originalFetch = window.fetch;
     window.fetch = async function() {

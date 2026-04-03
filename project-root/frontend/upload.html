@@ -13,46 +13,55 @@
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
 
 <!-- ── Top Navigation Bar ────────────────────────────────────────────────── -->
-<header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
-  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-    <div class="flex items-center gap-2 group cursor-pointer" onclick="window.location.href='/'">
-      <div class="bg-primary p-1.5 rounded-lg text-white">
-        <span class="material-symbols-outlined text-xl block">auto_awesome</span>
+<header class="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl dark:border-slate-800">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center text-sm">
+    <div class="flex items-center gap-8">
+      <div class="flex items-center gap-2 group cursor-pointer" onclick="window.location.href='/'">
+        <div class="bg-primary p-1.5 rounded-lg text-white">
+          <span class="material-symbols-outlined text-lg block">auto_awesome</span>
+        </div>
+        <h1 class="font-bold text-base tracking-tight">ResearchAI</h1>
       </div>
-      <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">ResearchAI</h1>
+      <nav class="hidden md:flex items-center gap-6">
+        <a class="font-bold text-primary" href="upload.html">Upload</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="library.html">Library</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="summary.html">Summary</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="chat.html">Ask AI</a>
+        <a class="font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" href="compare.html">Compare</a>
+      </nav>
     </div>
-    <nav class="hidden md:flex items-center gap-12">
-      <div class="flex items-center gap-2 text-primary font-semibold border-b-2 border-primary pb-5 mt-5">
-        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs">1</span>
-        <span>Upload</span>
-      </div>
-      <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-medium pb-5 mt-5 border-b-2 border-transparent hover:text-primary transition-colors cursor-pointer" onclick="window.location.href='library.html'">
-        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-xs text-[10px]"><span class="material-symbols-outlined text-[14px]">library_books</span></span>
-        <span>Library</span>
-      </div>
-      <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-medium pb-5 mt-5 border-b-2 border-transparent">
-        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-xs">2</span>
-        <span>Summary</span>
-      </div>
-      <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-medium pb-5 mt-5 border-b-2 border-transparent hover:text-primary transition-colors cursor-pointer" onclick="window.location.href='chat.html'">
-        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-xs">3</span>
-        <span>Ask AI</span>
-      </div>
-      <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-medium pb-5 mt-5 border-b-2 border-transparent hover:text-primary transition-colors cursor-pointer" onclick="window.location.href='compare.html'">
-        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 text-xs text-[10px]"><span class="material-symbols-outlined text-[14px]">compare_arrows</span></span>
-        <span>Compare</span>
-      </div>
-    </nav>
     <div class="flex items-center gap-4">
-      <button class="p-2 text-slate-500 hover:text-primary transition-colors">
-        <span class="material-symbols-outlined">help</span>
+      <button onclick="toggleMobileMenu()" class="md:hidden p-2 text-slate-600 dark:text-slate-300">
+        <span class="material-symbols-outlined">menu</span>
       </button>
-      <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 cursor-pointer">
-        <span class="material-symbols-outlined text-xl">account_circle</span>
-      </div>
+      <button onclick="logout()" class="hidden md:block text-xs font-bold text-red-500 hover:text-red-600 transition-colors">Sign Out</button>
     </div>
   </div>
 </header>
+
+<!-- Mobile Navigation Drawer -->
+<div id="mobileMenuOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300" onclick="toggleMobileMenu()"></div>
+<div id="mobileMenuDrawer" class="fixed top-0 right-0 h-full w-72 bg-white dark:bg-slate-900 z-[70] translate-x-full transition-transform duration-300 shadow-2xl p-8 flex flex-col">
+  <div class="flex items-center justify-between mb-10">
+    <span class="font-black text-primary tracking-tight italic">ResearchAI</span>
+    <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+  <nav class="flex flex-col gap-6 mb-auto">
+    <a href="upload.html" class="text-lg font-bold text-primary">Upload</a>
+    <a href="library.html" class="text-lg font-bold text-slate-900 dark:text-white">Library</a>
+    <a href="summary.html" class="text-lg font-bold text-slate-900 dark:text-white">Summary</a>
+    <a href="chat.html" class="text-lg font-bold text-slate-900 dark:text-white">Ask AI</a>
+    <a href="compare.html" class="text-lg font-bold text-slate-900 dark:text-white">Compare</a>
+  </nav>
+  <div class="pt-8 border-t border-slate-100 dark:border-slate-800">
+    <button onclick="logout()" class="w-full bg-red-50 dark:bg-red-900/10 text-red-600 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2">
+      <span class="material-symbols-outlined text-lg">logout</span>
+      SIGN OUT
+    </button>
+  </div>
+</div>
 
 <!-- ── Main Content ────────────────────────────────────────────────────────── -->
 <main class="flex-grow flex items-center justify-center p-6">
@@ -248,18 +257,28 @@
 <script>
     const authToken = localStorage.getItem('authToken');
     if (!authToken) { window.location.href = '/login.html'; }
-    window.addEventListener('DOMContentLoaded', () => {
-      const btn = document.createElement('button');
-      btn.textContent = 'Sign Out';
-      btn.style.cssText = 'position: fixed; top: 1rem; right: 1rem; background-color: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: bold; cursor: pointer; z-index: 1000; border: none;';
-      btn.onclick = () => {
-        fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
-          localStorage.removeItem('authToken');
-          window.location.href = '/login.html';
-        });
-      };
-      document.body.appendChild(btn);
-    });
+    function logout() {
+      fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+        localStorage.removeItem('authToken');
+        window.location.href = '/login.html';
+      });
+    }
+
+    function toggleMobileMenu() {
+      const overlay = document.getElementById('mobileMenuOverlay');
+      const drawer = document.getElementById('mobileMenuDrawer');
+      const isHidden = overlay.classList.contains('hidden');
+      
+      if (isHidden) {
+        overlay.classList.remove('hidden');
+        drawer.classList.remove('translate-x-full');
+        setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+      } else {
+        overlay.classList.add('opacity-0');
+        drawer.classList.add('translate-x-full');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+      }
+    }
 
     const originalFetch = window.fetch;
     window.fetch = async function() {
