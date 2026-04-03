@@ -179,6 +179,7 @@
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+    <script>
     function logout() {
       fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
         localStorage.removeItem('authToken');
