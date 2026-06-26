@@ -50,7 +50,7 @@ async function indexChunks(chunks, index_id) {
     console.log(`[FAISS] /index SUCCESS`);
     return response.data;
   });
-}}
+}
 
 /**
  * searchQuery: tries /search-reranked first for better answer quality.
