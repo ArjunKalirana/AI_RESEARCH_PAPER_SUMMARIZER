@@ -6,21 +6,51 @@ if (FAISS_URL.endsWith("/")) {
 }
 
 console.log(`🔌 [FAISS] Service URL: ${FAISS_URL}`);
+// ── Wake-up retry for Render free tier spin-down ──────────────────────────
+async function waitForFaissReady(maxWaitMs = 60000) {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    try {
+      const res = await axios.get(`${FAISS_URL}/health`, { timeout: 5000 });
+      if (res.data && res.data.status === "ok") {
+        console.log("[FAISS] Service is awake ✅");
+        return true;
+      }
+    } catch (_) {}
+    console.log("[FAISS] Service sleeping — retrying in 5s...");
+    await new Promise(r => setTimeout(r, 5000));
+  }
+  throw new Error("FAISS service did not wake up in time");
+}
 
-async function indexChunks(chunks, index_id) {
-  console.log(`[FAISS] Requesting /index for index_id: ${index_id}`);
+async function withWakeUp(fn) {
   try {
-    const response = await axios.post(`${FAISS_URL}/index`, {
-      index_id: index_id,
-      chunks: chunks,
-    });
-    console.log(`[FAISS] /index SUCCESS`);
-    return response.data;
+    return await fn();
   } catch (err) {
-    console.error(`[FAISS] /index ERROR: ${err.message}`);
+    const isRenderSleep =
+      err.response &&
+      err.response.status === 404 &&
+      err.response.headers["x-render-routing"] === "no-server";
+    if (isRenderSleep) {
+      console.warn("[FAISS] Render spin-down detected — waking service...");
+      await waitForFaissReady();
+      return await fn(); // retry once after wake-up
+    }
     throw err;
   }
 }
+// ─────────────────────────────────────────────────────────────────────────────
+async function indexChunks(chunks, index_id) {
+  console.log(`[FAISS] Requesting /index for index_id: ${index_id}`);
+  return withWakeUp(async () => {
+    const response = await axios.post(`${FAISS_URL}/index`, {
+      index_id: index_id,
+      chunks: chunks,
+    }, { timeout: 120000 }); // 2 min — covers cold start + large paper
+    console.log(`[FAISS] /index SUCCESS`);
+    return response.data;
+  });
+}}
 
 /**
  * searchQuery: tries /search-reranked first for better answer quality.
